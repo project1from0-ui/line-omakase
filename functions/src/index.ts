@@ -2,7 +2,7 @@ import {onRequest} from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
 import axios from "axios";
-import {GoogleGenerativeAI, Content} from "@google/generative-ai";
+import {GoogleGenerativeAI, Content, Part} from "@google/generative-ai";
 import {Tenant, AppUser, AppMessage} from "./types"; // importing type definitions
 
 // initialize Firebase Admin SDK
@@ -11,6 +11,21 @@ const db = admin.firestore();
 
 // initialize Google Gemini API client
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+
+// ---------------------------------------------------------
+// Helper: obtain an image from LINE and return as base64
+// ---------------------------------------------------------
+const fetchImageAsBase64 = async (messageId: string, accessToken: string): Promise<string> => {
+  const url = `https://api-data.line.me/v2/bot/message/${messageId}/content`;
+  const response = await axios.get(url, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    responseType: "arraybuffer",
+  });
+  const base64Image = Buffer.from(response.data, "binary").toString("base64");
+  return base64Image;
+};
 
 // ---------------------------------------------------------
 // Helper: obtain chat history and format for Gemini
@@ -33,8 +48,21 @@ const getChatHistory = async (botId: string, userId: string): Promise<Content[]>
       parts: [{text: data.content}],
     });
   });
+  // clean up history to abide by Gemini's rule of the first message should be sent by user
+  const cleanHistory: Content[] = [];
+  let nextExpectedRole = "user";
 
-  return history;
+  for (const item of history) {
+    if (item.role === nextExpectedRole) {
+      cleanHistory.push(item);
+      nextExpectedRole = nextExpectedRole === "user" ? "model" : "user";
+    } else {
+      // if the role is not as expected, we skip this message to maintain the correct alternation
+      console.warn(`Skipping message with role ${item.role} to maintain user-model alternation`);
+    }
+  }
+
+  return cleanHistory;
 };
 
 // ---------------------------------------------------------
@@ -97,7 +125,7 @@ const validateSignature = (body: string, signature: string, secret: string): boo
 // ---------------------------------------------------------
 // Main: Webhook Gateway
 // ---------------------------------------------------------
-export const lineWebhook = onRequest({region: "asia-northeast1"}, async (req, res) => {
+export const lineWebhook = onRequest({region: "asia-northeast1", memory: "1GiB"}, async (req, res) => {
   // 1. restrict to POST method
   if (req.method !== "POST") {
     res.status(405).send("Method Not Allowed");
@@ -143,25 +171,54 @@ export const lineWebhook = onRequest({region: "asia-northeast1"}, async (req, re
 
     // process multiple events parallely
     const tasks = events.map(async (event: any) => {
-      if (event.type !== "message" || event.message.type !== "text") {
+      if (event.type !== "message") {
         console.log(`Unsupported event type: ${event.type} or message type: ${event.message.type}`);
         return;
       }
 
       const userId = event.source.userId;
-      const userMessage = event.message.text;
       const replyToken = event.replyToken;
+      const messageType = event.message.type;
       // update user profile
       await updateUserProfile(botId, userId);
+
+      // branch for message types
+      let userPromptParts: Part[] = [];
+      let logContent = "";
+      let logType: "text" | "image" = "text";
+
+      if (messageType === "text") {
+        const text = event.message.text;
+        userPromptParts = [{text: text}];
+        logContent = text;
+        logType = "text";
+        console.log(`Bot (${botId}) received TEXT: ${text}`);
+      } else if (messageType === "image") {
+        console.log(`Bot (${botId}) received IMAGE`);
+        const imageBase64 = await fetchImageAsBase64(event.message.id, tenantData.lineAccessToken);
+        userPromptParts = [
+          {text: "この画像に写る食品を認識して栄養成分を推定したうえで、以下のフォーマットに沿って評価・指導を行ってください。食事指導フォーマット  \n■ 栄養素\n ・P (タンパク質) : [00]g [ ○ / △ / × ]\n ・F(脂質) : [00]g [ ○ / △ / × ]\n ・C (炭水化物) : [00]g [ ○ / △ / × ]\n ・推定 : [000] kcal\n\n■ 総合評価\n [例：脂質が完全にオーバーです / タンパク質が全く足りていません]\n\n■ 次回の指示\n [例：油を使わない「蒸し」か「茹で」のメインを選んでください]\n\n■ 理由\n [例：今の食事で摂りすぎた脂質を、1日の中で薄めてリセットするためです]"},
+          {
+            inlineData: {
+              data: imageBase64,
+              mimeType: "image/jpeg",
+            },
+          },
+        ];
+        logContent = "[Image data]"; // do not log actual image data
+        logType = "image";
+      } else {
+        // unsupported type
+        return;
+      }
+
       // save user message
       await saveMessage(botId, userId, {
         sender: "user",
-        type: "text",
-        content: userMessage,
+        type: logType,
+        content: logContent,
         createdAt: new Date(),
       });
-
-      console.log(`Bot ${botId} processing message from user:`, userMessage);
 
       // generate AI response based on chat history
       const history = await getChatHistory(botId, userId);
@@ -178,7 +235,7 @@ export const lineWebhook = onRequest({region: "asia-northeast1"}, async (req, re
 
       console.log(`Bot (${botId}) context length: ${history.length} messages`);
 
-      const result = await chatSession.sendMessage(userMessage);
+      const result = await chatSession.sendMessage(userPromptParts);
       const aiResponse = result.response.text();
 
       // save AI message
