@@ -147,8 +147,8 @@ export default function GoalSettingPage({ params }: { params: Promise<{ id: stri
             <button type="button" onClick={() => router.push("/")} className="px-6 py-2 border rounded-lg text-gray-600 hover:bg-gray-100">
               キャンセル
             </button>
-            <button type="submit" disabled={isSubmitting} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300">
-              {isSubmitting ? "保存中..." : "計算して目標を保存"}
+            <button type="submit" disabled={isSubmitting} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300 whitespace-nowrap">
+              {isSubmitting ? "保存中..." : "目標を保存"}
             </button>
           </div>
         </form>

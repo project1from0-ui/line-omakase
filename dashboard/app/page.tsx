@@ -45,7 +45,7 @@ export default function DashboardOverview() {
     <div className="min-h-screen bg-gray-50 text-gray-800 p-8">
       <div className="max-w-5xl mx-auto bg-white rounded-xl shadow overflow-hidden">
         <div className="p-6 border-b bg-gray-100 flex justify-between items-center">
-          <h1 className="font-bold text-xl">クライアント管理ダッシュボード</h1>
+          <h1 className="font-bold text-xl whitespace-nowrap">クライアント管理ダッシュボード</h1>
         </div>
         
         <div className="divide-y">
@@ -55,24 +55,23 @@ export default function DashboardOverview() {
             <div className="p-8 text-center text-gray-500">まだ登録ユーザーがいません</div>
           ) : (
             users.map((user) => (
-              <div key={user.lineUserId} className="p-6 flex items-center justify-between hover:bg-gray-50 transition-colors">
+              <div key={user.lineUserId} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-gray-50 transition-colors">
                 
                 {/* ユーザー情報 */}
-                <div>
+                <div className="overflow-hidden">
                   <div className="flex items-baseline gap-3 mb-1">
-                    <span className="font-bold text-lg">{user.displayName}</span>
-                    <span className="text-sm text-gray-400">
-                      最終アクセス: {format(user.lastMessageAt, "MM/dd HH:mm", { locale: ja })}
+                    <span className="font-bold text-lg truncate">{user.displayName}</span>
+                    <span className="text-sm text-gray-400 whitespace-nowrap">
+                      最終メッセージ: {format(user.lastMessageAt, "MM/dd HH:mm", { locale: ja })}
                     </span>
                   </div>
-                  <div className="text-sm text-gray-500">ID: {user.lineUserId}</div>
                 </div>
 
                 {/* 目標ステータス & アクションボタン */}
-                <div className="text-right">
+                <div className="text-left sm:text-right flex-shrink-0">
                   {user.nutritionalGoal ? (
-                    <div className="flex flex-col items-end">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mb-2">
+                    <div className="flex flex-col items-start sm:items-end">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mb-2 whitespace-nowrap">
                         目標設定済み
                       </span>
                       <span className="text-sm font-semibold text-gray-700">
@@ -82,9 +81,9 @@ export default function DashboardOverview() {
                   ) : (
                     <Link 
                       href={`/users/${user.lineUserId}/goal`}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                      className="inline-block text-center w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
                     >
-                      目標を設定する
+                      目標を設定
                     </Link>
                   )}
                 </div>
