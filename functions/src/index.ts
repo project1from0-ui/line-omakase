@@ -2,8 +2,8 @@ import {onRequest} from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
 import axios from "axios";
-import {GoogleGenerativeAI, Content, Part} from "@google/generative-ai";
-import {Tenant, AppUser, AppMessage} from "./types"; // importing type definitions
+import {GoogleGenerativeAI, Content, Part, SchemaType, Schema} from "@google/generative-ai";
+import {Tenant, AppUser, AppMessage, NutritionData} from "./types"; // importing type definitions
 
 // initialize Firebase Admin SDK
 admin.initializeApp();
@@ -11,6 +11,19 @@ const db = admin.firestore();
 
 // initialize Google Gemini API client
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+
+// Gemini structured output schema
+const nutritionResponseSchema: Schema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    replyText: {type: SchemaType.STRING, description: "LINEユーザーへの返信メッセージ。食事に関する場合は「■ 栄養素」「■ 総合評価」「■ 次回の指示」「■ 理由」のセクションを含む詳細な指導テキスト。食事以外の場合は自然な日本語の返答。"},
+    calories: {type: SchemaType.NUMBER, description: "推定カロリー（kcal）。食事以外は0"},
+    protein: {type: SchemaType.NUMBER, description: "タンパク質（g）。食事以外は0"},
+    fat: {type: SchemaType.NUMBER, description: "脂質（g）。食事以外は0"},
+    carbs: {type: SchemaType.NUMBER, description: "炭水化物（g）。食事以外は0"},
+  },
+  required: ["replyText", "calories", "protein", "fat", "carbs"],
+};
 
 // ---------------------------------------------------------
 // Helper: obtain an image from LINE and return as base64
@@ -224,30 +237,50 @@ export const lineWebhook = onRequest({region: "asia-northeast1", memory: "1GiB"}
       const history = await getChatHistory(botId, userId);
       const model = genAI.getGenerativeModel({
         model: "gemini-2.5-flash-lite",
-        systemInstruction: tenantData.systemPrompt,
+        systemInstruction:
+          (tenantData.systemPrompt || "") +
+          "\n\n重要: 返答は必ずJSONフォーマットで返してください。" +
+          "replyTextには、食事に関するメッセージの場合は「■ 栄養素」「■ 総合評価」「■ 次回の指示」「■ 理由」のセクションを含む詳細な栄養指導テキストを書いてください。食事以外の場合は自然な日本語の返答を書いてください。" +
+          "calories・protein・fat・carbsには食事から推定した栄養値（整数）を入れ、食事でない場合は0にしてください。",
       });
       const chatSession = model.startChat({
         history: history,
         generationConfig: {
           maxOutputTokens: 1024,
+          responseMimeType: "application/json",
+          responseSchema: nutritionResponseSchema,
         },
       });
 
       console.log(`Bot (${botId}) context length: ${history.length} messages`);
 
       const result = await chatSession.sendMessage(userPromptParts);
-      const aiResponse = result.response.text();
+      const parsed = JSON.parse(result.response.text()) as {
+        replyText: string;
+        calories: number;
+        protein: number;
+        fat: number;
+        carbs: number;
+      };
 
-      // save AI message
+      const nutrition: NutritionData = {
+        calories: parsed.calories,
+        protein: parsed.protein,
+        fat: parsed.fat,
+        carbs: parsed.carbs,
+      };
+
+      // save AI message with nutrition data (omit nutrition when no food detected)
       await saveMessage(botId, userId, {
         sender: "ai",
         type: "text",
-        content: aiResponse,
+        content: parsed.replyText,
         createdAt: new Date(),
+        ...(nutrition.calories > 0 && {nutrition}),
       });
 
-      // reply via LINE Messaging API
-      await replyToLine(replyToken, aiResponse, tenantData.lineAccessToken);
+      // reply via LINE with natural text only
+      await replyToLine(replyToken, parsed.replyText, tenantData.lineAccessToken);
     });
 
     await Promise.all(tasks);
