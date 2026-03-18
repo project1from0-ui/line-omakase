@@ -7,11 +7,11 @@ export interface Tenant {
 }
 
 // 2. app user (LINE)
-export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
-export type Purpose = 'lose_weight' | 'maintain' | 'bulk_up';
+export type ActivityLevel = "sedentary" | "light" | "moderate" | "active" | "very_active";
+export type Purpose = "lose_weight" | "maintain" | "bulk_up";
 
 export interface PersonalInfo {
-  sex: 'male' | 'female';
+  sex: "male" | "female";
   age: number;
   height: number; // cm
   weight: number; // kg
@@ -40,10 +40,18 @@ export interface AppUser {
 }
 
 // 3. chat message
+export interface NutritionData {
+  calories: number; // kcal
+  protein: number; // g
+  fat: number; // g
+  carbs: number; // g
+}
+
 export interface AppMessage {
   id?: string; // document ID from Firestore
   sender: "user" | "ai"; // who sent the message
   type: "text" | "image"; // message type
   content: string; // text content or image URL
   createdAt: Date; // timestamp of message creation
+  nutrition?: NutritionData; // AI-extracted nutrition data (only when food is detected)
 }
