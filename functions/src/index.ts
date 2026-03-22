@@ -190,10 +190,11 @@ export const lineWebhook = onRequest({region: "asia-northeast1", memory: "1GiB"}
 
     const tenantData = tenantDoc.data() as Tenant;
 
-    // 4. validate signature
-    const rawBody = JSON.stringify(body);
+    // 4. validate signature using raw request body bytes (not re-serialized JSON)
+    const rawBody = (req as any).rawBody as Buffer | undefined;
+    const rawBodyStr = rawBody ? rawBody.toString("utf8") : JSON.stringify(body);
 
-    if (!validateSignature(rawBody, signature, tenantData.lineChannelSecret)) {
+    if (!validateSignature(rawBodyStr, signature, tenantData.lineChannelSecret)) {
       console.error("Invalid signature for bot:", botId);
       res.status(401).send("Invalid Signature");
       return;
@@ -203,10 +204,10 @@ export const lineWebhook = onRequest({region: "asia-northeast1", memory: "1GiB"}
     const events = body.events;
     console.log(`Bot ${botId} received events:`, JSON.stringify(events));
 
-    // process multiple events parallely
+    // process multiple events — allSettled ensures 200 even if one event fails
     const tasks = events.map(async (event: any) => {
       if (event.type !== "message") {
-        console.log(`Unsupported event type: ${event.type} or message type: ${event.message.type}`);
+        console.log(`Unsupported event type: ${event.type}`);
         return;
       }
 
@@ -284,12 +285,21 @@ export const lineWebhook = onRequest({region: "asia-northeast1", memory: "1GiB"}
         carbs: number;
       };
 
-      const nutrition: NutritionData = {
-        calories: parsed.calories,
-        protein: parsed.protein,
-        fat: parsed.fat,
-        carbs: parsed.carbs,
-      };
+      // Validate nutrition values — reject unrealistic outputs from Gemini
+      const isValidNutrition = (
+        parsed.calories >= 0 && parsed.calories <= 3000 &&
+        parsed.protein >= 0 && parsed.protein <= 200 &&
+        parsed.fat >= 0 && parsed.fat <= 200 &&
+        parsed.carbs >= 0 && parsed.carbs <= 500
+      );
+
+      const nutrition: NutritionData = isValidNutrition
+        ? {calories: parsed.calories, protein: parsed.protein, fat: parsed.fat, carbs: parsed.carbs}
+        : {calories: 0, protein: 0, fat: 0, carbs: 0};
+
+      if (!isValidNutrition && (parsed.calories > 0 || parsed.protein > 0)) {
+        console.warn(`Unrealistic nutrition values rejected: ${JSON.stringify(parsed)}`);
+      }
 
       // save AI message with nutrition data (omit nutrition when no food detected)
       await saveMessage(botId, userId, {
@@ -304,27 +314,47 @@ export const lineWebhook = onRequest({region: "asia-northeast1", memory: "1GiB"}
       if (nutrition.calories > 0) {
         const usersRef = db.collection(`tenants/${botId}/users`).doc(userId);
         const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-        const existingUser = await usersRef.get();
-        const existingData = existingUser.data();
-        const isSameDay = existingData?.todayDate === todayStr;
+        const FieldValue = admin.firestore.FieldValue;
 
-        await usersRef.set({
-          lastMealReportAt: new Date(),
-          todayDate: todayStr,
-          todayCalories: isSameDay ? (existingData?.todayCalories || 0) + nutrition.calories : nutrition.calories,
-          todayProtein: isSameDay ? (existingData?.todayProtein || 0) + nutrition.protein : nutrition.protein,
-          todayFat: isSameDay ? (existingData?.todayFat || 0) + nutrition.fat : nutrition.fat,
-          todayCarbs: isSameDay ? (existingData?.todayCarbs || 0) + nutrition.carbs : nutrition.carbs,
-        }, {merge: true});
+        await db.runTransaction(async (t) => {
+          const snap = await t.get(usersRef);
+          const isSameDay = snap.data()?.todayDate === todayStr;
+
+          if (isSameDay) {
+            // Same day: atomically increment
+            t.update(usersRef, {
+              lastMealReportAt: new Date(),
+              todayCalories: FieldValue.increment(nutrition.calories),
+              todayProtein: FieldValue.increment(nutrition.protein),
+              todayFat: FieldValue.increment(nutrition.fat),
+              todayCarbs: FieldValue.increment(nutrition.carbs),
+            });
+          } else {
+            // New day: reset totals
+            t.set(usersRef, {
+              lastMealReportAt: new Date(),
+              todayDate: todayStr,
+              todayCalories: nutrition.calories,
+              todayProtein: nutrition.protein,
+              todayFat: nutrition.fat,
+              todayCarbs: nutrition.carbs,
+            }, {merge: true});
+          }
+        });
       }
 
       // reply via LINE with natural text only
       await replyToLine(replyToken, parsed.replyText, tenantData.lineAccessToken);
     });
 
-    await Promise.all(tasks);
+    const results = await Promise.allSettled(tasks);
+    results.forEach((r, i) => {
+      if (r.status === "rejected") {
+        console.error(`Event[${i}] failed:`, r.reason);
+      }
+    });
 
-    // 6. respond with 200 OK so as not to retry
+    // 6. always respond with 200 OK to prevent LINE retry
     res.status(200).send("OK");
   } catch (error) {
     console.error("System Error:", error);
