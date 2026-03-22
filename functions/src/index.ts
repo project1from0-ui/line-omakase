@@ -333,6 +333,48 @@ export const lineWebhook = onRequest({region: "asia-northeast1", memory: "1GiB"}
 });
 
 // ---------------------------------------------------------
+// Callable: Send push message from trainer to a LINE user
+// ---------------------------------------------------------
+export const sendPushMessage = onCall({region: "asia-northeast1"}, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Authentication required");
+  }
+
+  const {lineUserId, message} = request.data as {lineUserId: string; message: string};
+  if (!lineUserId || !message || typeof message !== "string" || message.trim() === "") {
+    throw new HttpsError("invalid-argument", "lineUserId and message are required");
+  }
+
+  const uid = request.auth.uid;
+  const tenantsSnap = await db.collection("tenants").where("ownerId", "==", uid).get();
+  if (tenantsSnap.empty) {
+    throw new HttpsError("not-found", "No tenant found for this user");
+  }
+
+  const tenantDoc = tenantsSnap.docs[0];
+  const tenantId = tenantDoc.id;
+  const tenantData = tenantDoc.data() as Tenant;
+
+  // Send push message via LINE API
+  await axios.post("https://api.line.me/v2/bot/message/push", {
+    to: lineUserId,
+    messages: [{type: "text", text: message.trim()}],
+  }, {
+    headers: {"Authorization": `Bearer ${tenantData.lineAccessToken}`},
+  });
+
+  // Save to Firestore as trainer message
+  await db.collection(`tenants/${tenantId}/users/${lineUserId}/messages`).add({
+    sender: "trainer",
+    type: "text",
+    content: message.trim(),
+    createdAt: new Date(),
+  });
+
+  return {success: true};
+});
+
+// ---------------------------------------------------------
 // Callable: Refresh all user profiles for a tenant
 // ---------------------------------------------------------
 export const refreshUserProfiles = onCall({region: "asia-northeast1"}, async (request) => {

@@ -3,8 +3,9 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState, useMemo, use } from "react";
-import { collection, query, orderBy, onSnapshot, doc, getDoc } from "firebase/firestore";
-import { db } from "../../../src/lib/firebase";
+import { collection, query, orderBy, onSnapshot, doc } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
+import { db, functions } from "../../../src/lib/firebase";
 import { AppUser, AppMessage, NutritionData } from "../../../src/types";
 import { useRequireAuth } from "../../../src/hooks/useRequireAuth";
 import { format, startOfDay, isSameDay } from "date-fns";
@@ -47,6 +48,9 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
   const [messages, setMessages] = useState<AppMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"nutrition" | "chat">("nutrition");
+  const [pushText, setPushText] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   // Fetch user data
   useEffect(() => {
@@ -123,6 +127,21 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
   const todayNutrition = useMemo(() => {
     return dailyNutrition.find((d) => isSameDay(d.date, new Date())) || null;
   }, [dailyNutrition]);
+
+  const handleSendPush = async () => {
+    if (!pushText.trim() || sending) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      const fn = httpsCallable(functions, "sendPushMessage");
+      await fn({ lineUserId: userId, message: pushText.trim() });
+      setPushText("");
+    } catch (err: any) {
+      setSendError(err?.message || "送信に失敗しました");
+    } finally {
+      setSending(false);
+    }
+  };
 
   if (!ready || loading) {
     return (
@@ -242,9 +261,41 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
       {/* Content */}
       <div className="max-w-2xl mx-auto px-4 py-3">
         {activeTab === "nutrition" ? (
-          <NutritionTab dailyNutrition={dailyNutrition} goal={goal} />
+          <NutritionTab dailyNutrition={dailyNutrition} goal={goal} displayName={user.displayName} />
         ) : (
-          <ChatTab messages={messages} />
+          <>
+            <ChatTab messages={messages} />
+            {/* Push message input */}
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-3">
+              <div className="max-w-2xl mx-auto flex gap-2">
+                <textarea
+                  value={pushText}
+                  onChange={(e) => setPushText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendPush();
+                    }
+                  }}
+                  placeholder="トレーナーからメッセージを送信..."
+                  rows={1}
+                  className="flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <button
+                  onClick={handleSendPush}
+                  disabled={!pushText.trim() || sending}
+                  className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium disabled:opacity-40 hover:bg-blue-700 transition-colors"
+                >
+                  {sending ? "送信中" : "送信"}
+                </button>
+              </div>
+              {sendError && (
+                <p className="max-w-2xl mx-auto mt-1 text-xs text-red-500">{sendError}</p>
+              )}
+            </div>
+            {/* Spacer to avoid content hidden behind fixed input */}
+            <div className="h-16" />
+          </>
         )}
       </div>
     </div>
@@ -304,7 +355,29 @@ function WeeklyTrend({ dailyNutrition, goal }: { dailyNutrition: DailyNutrition[
   );
 }
 
-function NutritionTab({ dailyNutrition, goal }: { dailyNutrition: DailyNutrition[]; goal?: AppUser["nutritionalGoal"] }) {
+function exportNutritionCSV(dailyNutrition: DailyNutrition[], displayName: string) {
+  const header = "日付,カロリー(kcal),タンパク質(g),脂質(g),炭水化物(g),食事回数";
+  const rows = dailyNutrition.map((d) =>
+    [
+      format(d.date, "yyyy-MM-dd"),
+      Math.round(d.totalCalories),
+      Math.round(d.totalProtein),
+      Math.round(d.totalFat),
+      Math.round(d.totalCarbs),
+      d.mealCount,
+    ].join(",")
+  );
+  const csv = "\uFEFF" + [header, ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${displayName}_nutrition_${format(new Date(), "yyyyMMdd")}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function NutritionTab({ dailyNutrition, goal, displayName }: { dailyNutrition: DailyNutrition[]; goal?: AppUser["nutritionalGoal"]; displayName: string }) {
   if (dailyNutrition.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-slate-100 p-12 text-center">
@@ -315,6 +388,17 @@ function NutritionTab({ dailyNutrition, goal }: { dailyNutrition: DailyNutrition
 
   return (
     <div className="flex flex-col gap-3">
+      <div className="flex justify-end">
+        <button
+          onClick={() => exportNutritionCSV(dailyNutrition, displayName)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs text-slate-600 hover:bg-slate-50 transition-colors"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+          </svg>
+          CSVダウンロード
+        </button>
+      </div>
       <WeeklyTrend dailyNutrition={dailyNutrition} goal={goal} />
       {dailyNutrition.map((day) => (
         <div key={day.date.toISOString()} className="bg-white rounded-xl border border-slate-100 p-4">
@@ -377,36 +461,47 @@ function ChatTab({ messages }: { messages: AppMessage[] }) {
 
   return (
     <div className="flex flex-col gap-2">
-      {chronological.map((msg) => (
-        <div
-          key={msg.id}
-          className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
-        >
+      {chronological.map((msg) => {
+        const isUser = msg.sender === "user";
+        const isTrainer = msg.sender === "trainer";
+        return (
           <div
-            className={`max-w-[80%] rounded-2xl px-3.5 py-2 ${
-              msg.sender === "user"
-                ? "bg-blue-600 text-white"
-                : "bg-white border border-slate-200 text-slate-700"
-            }`}
+            key={msg.id}
+            className={`flex ${isUser ? "justify-end" : "justify-start"}`}
           >
-            {msg.type === "image" ? (
-              <span className="text-xs opacity-70">[画像]</span>
-            ) : (
-              <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
-            )}
-            <div className={`flex items-center gap-2 mt-1 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
-              <span className={`text-[10px] ${msg.sender === "user" ? "text-blue-200" : "text-slate-400"}`}>
-                {format(msg.createdAt, "HH:mm")}
-              </span>
-              {msg.nutrition && msg.nutrition.calories > 0 && (
-                <span className={`text-[10px] ${msg.sender === "user" ? "text-blue-200" : "text-slate-400"}`}>
-                  {msg.nutrition.calories}kcal
-                </span>
+            <div className="flex flex-col gap-0.5 max-w-[80%]">
+              {isTrainer && (
+                <span className="text-[10px] text-emerald-600 font-medium px-1">トレーナー</span>
               )}
+              <div
+                className={`rounded-2xl px-3.5 py-2 ${
+                  isUser
+                    ? "bg-blue-600 text-white"
+                    : isTrainer
+                    ? "bg-emerald-50 border border-emerald-200 text-slate-700"
+                    : "bg-white border border-slate-200 text-slate-700"
+                }`}
+              >
+                {msg.type === "image" ? (
+                  <span className="text-xs opacity-70">[画像]</span>
+                ) : (
+                  <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+                )}
+                <div className={`flex items-center gap-2 mt-1 ${isUser ? "justify-end" : "justify-start"}`}>
+                  <span className={`text-[10px] ${isUser ? "text-blue-200" : isTrainer ? "text-emerald-400" : "text-slate-400"}`}>
+                    {format(msg.createdAt, "HH:mm")}
+                  </span>
+                  {msg.nutrition && msg.nutrition.calories > 0 && (
+                    <span className={`text-[10px] ${isUser ? "text-blue-200" : "text-slate-400"}`}>
+                      {msg.nutrition.calories}kcal
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

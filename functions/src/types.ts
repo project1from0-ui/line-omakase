@@ -55,7 +55,7 @@ export interface NutritionData {
 
 export interface AppMessage {
   id?: string; // document ID from Firestore
-  sender: "user" | "ai"; // who sent the message
+  sender: "user" | "ai" | "trainer"; // who sent the message
   type: "text" | "image"; // message type
   content: string; // text content or image URL
   createdAt: Date; // timestamp of message creation
