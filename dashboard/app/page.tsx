@@ -112,6 +112,9 @@ export default function DashboardOverview() {
       });
       setUsers(fetchedUsers);
       setLoading(false);
+    }, (error) => {
+      console.error("Users snapshot error:", error);
+      setLoading(false);
     });
 
     return () => unsubscribe();

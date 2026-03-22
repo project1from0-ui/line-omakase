@@ -22,17 +22,21 @@ const TENANT_CACHE_KEY = "omakase_tenantId";
 const UID_CACHE_KEY = "omakase_uid";
 
 async function fetchTenantId(uid: string): Promise<string | null> {
-  const tenantsRef = collection(db, "tenants");
-  const q = query(tenantsRef, where("ownerId", "==", uid));
-  const snapshot = await getDocs(q);
-  if (snapshot.empty) return null;
-  const tid = snapshot.docs[0].id;
-  // Cache for faster subsequent loads
   try {
-    localStorage.setItem(TENANT_CACHE_KEY, tid);
-    localStorage.setItem(UID_CACHE_KEY, uid);
-  } catch {}
-  return tid;
+    const tenantsRef = collection(db, "tenants");
+    const q = query(tenantsRef, where("ownerId", "==", uid));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return null;
+    const tid = snapshot.docs[0].id;
+    try {
+      localStorage.setItem(TENANT_CACHE_KEY, tid);
+      localStorage.setItem(UID_CACHE_KEY, uid);
+    } catch {}
+    return tid;
+  } catch (error) {
+    console.error("fetchTenantId error:", error);
+    return null;
+  }
 }
 
 function getCachedTenantId(uid: string): string | null {

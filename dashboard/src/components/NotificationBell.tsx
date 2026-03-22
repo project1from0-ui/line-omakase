@@ -34,6 +34,8 @@ export function NotificationBell({ tenantId }: { tenantId: string }) {
         } as Notification;
       });
       setNotifications(items);
+    }, (error) => {
+      console.error("Notifications snapshot error:", error);
     });
     return () => unsubscribe();
   }, [tenantId]);

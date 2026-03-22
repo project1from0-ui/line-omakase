@@ -60,6 +60,8 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
           lastMealReportAt: data.lastMealReportAt?.toDate() || undefined,
         } as AppUser);
       }
+    }, (error) => {
+      console.error("User snapshot error:", error);
     });
     return () => unsubscribe();
   }, [ready, tenantId, userId]);
@@ -79,6 +81,9 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
         } as AppMessage;
       });
       setMessages(msgs);
+      setLoading(false);
+    }, (error) => {
+      console.error("Messages snapshot error:", error);
       setLoading(false);
     });
     return () => unsubscribe();
