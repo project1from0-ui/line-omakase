@@ -3,17 +3,21 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Tenant document: only the owner can read/write
     match /tenants/{tenantId} {
-      allow read, write: if request.auth != null
-        && resource != null
+      // Allow authenticated users to query tenants by ownerId (for login flow)
+      // and read/write their own tenant
+      allow get: if request.auth != null
         && resource.data.ownerId == request.auth.uid;
 
-      // Allow create if authenticated (new tenant setup)
+      allow list: if request.auth != null;
+
       allow create: if request.auth != null
         && request.resource.data.ownerId == request.auth.uid;
 
-      // Users subcollection: only the tenant owner can access
+      allow update: if request.auth != null
+        && resource.data.ownerId == request.auth.uid;
+
+      // Users subcollection
       match /users/{userId} {
         allow read, write: if request.auth != null
           && get(/databases/$(database)/documents/tenants/$(tenantId)).data.ownerId == request.auth.uid;
@@ -24,12 +28,12 @@ service cloud.firestore {
             && get(/databases/$(database)/documents/tenants/$(tenantId)).data.ownerId == request.auth.uid;
         }
       }
-    }
 
-    // Tenant query: allow listing tenants where ownerId matches
-    match /tenants/{tenantId} {
-      allow list: if request.auth != null
-        && request.auth.uid == resource.data.ownerId;
+      // Notifications subcollection
+      match /notifications/{notificationId} {
+        allow read, write: if request.auth != null
+          && get(/databases/$(database)/documents/tenants/$(tenantId)).data.ownerId == request.auth.uid;
+      }
     }
   }
 }
