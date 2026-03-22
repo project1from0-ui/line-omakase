@@ -1,7 +1,7 @@
-import { initializeApp, getApp, getApps, FirebaseApp } from "firebase/app";
-import { getFirestore, Firestore } from "firebase/firestore";
-import { getAuth, Auth } from "firebase/auth";
-import { getFunctions, Functions } from "firebase/functions";
+import { initializeApp, getApp, getApps } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+import { getFunctions } from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -13,26 +13,25 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-let _app: FirebaseApp | undefined;
-let _db: Firestore | undefined;
-let _auth: Auth | undefined;
-let _functions: Functions | undefined;
-
-function getFirebaseApp() {
-  if (!_app) {
-    _app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-  }
-  return _app;
+function getApp_() {
+  return !getApps().length ? initializeApp(firebaseConfig) : getApp();
 }
 
-export const db: Firestore = new Proxy({} as Firestore, {
-  get(_, prop) { if (!_db) _db = getFirestore(getFirebaseApp()); return (_db as unknown as Record<string, unknown>)[prop as string]; },
-});
+export function getDb() {
+  return getFirestore(getApp_());
+}
 
-export const auth: Auth = new Proxy({} as Auth, {
-  get(_, prop) { if (!_auth) _auth = getAuth(getFirebaseApp()); return (_auth as unknown as Record<string, unknown>)[prop as string]; },
-});
+export function getAuth_() {
+  return getAuth(getApp_());
+}
 
-export const functions: Functions = new Proxy({} as Functions, {
-  get(_, prop) { if (!_functions) _functions = getFunctions(getFirebaseApp(), "asia-northeast1"); return (_functions as unknown as Record<string, unknown>)[prop as string]; },
-});
+export function getFunctions_() {
+  return getFunctions(getApp_(), "asia-northeast1");
+}
+
+// Eager init only in browser (not during SSR/build)
+const isClient = typeof window !== "undefined";
+
+export const db = isClient ? getDb() : (null as ReturnType<typeof getDb>);
+export const auth = isClient ? getAuth_() : (null as ReturnType<typeof getAuth_>);
+export const functions = isClient ? getFunctions_() : (null as ReturnType<typeof getFunctions_>);
