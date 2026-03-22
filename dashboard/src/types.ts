@@ -35,15 +35,24 @@ export interface AppUser {
   displayName: string; // used to show the user's name
   pictureUrl?: string; // URL of the user's profile picture
   lastMessageAt: Date; // timestamp of the last message sent by the user
+  lastMealReportAt?: Date; // timestamp of the last meal report
   personalInfo?: PersonalInfo; // user's personal information
   nutritionalGoal?: NutritionalGoal; // user's nutritional goals
 }
 
 // 3. chat message
+export interface NutritionData {
+  calories: number; // kcal
+  protein: number; // g
+  fat: number; // g
+  carbs: number; // g
+}
+
 export interface AppMessage {
   id?: string; // document ID from Firestore
   sender: "user" | "ai"; // who sent the message
   type: "text" | "image"; // message type
   content: string; // text content or image URL
   createdAt: Date; // timestamp of message creation
+  nutrition?: NutritionData; // AI-extracted nutrition data (only when food is detected)
 }
