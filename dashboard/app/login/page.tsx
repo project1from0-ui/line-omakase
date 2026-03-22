@@ -1,18 +1,34 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../src/contexts/AuthContext";
 
 export default function LoginPage() {
   const { user, loading, signIn } = useAuth();
   const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [signingIn, setSigningIn] = useState(false);
 
   useEffect(() => {
     if (!loading && user) {
       router.replace("/");
     }
   }, [user, loading, router]);
+
+  const handleSignIn = async () => {
+    setError(null);
+    setSigningIn(true);
+    try {
+      await signIn();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      console.error("Sign-in error:", e);
+    } finally {
+      setSigningIn(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -28,9 +44,16 @@ export default function LoginPage() {
         <h1 className="text-xl font-bold text-slate-800 mb-1">Omakase</h1>
         <p className="text-sm text-slate-400 mb-8">トレーナー向け栄養管理ダッシュボード</p>
 
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-600 text-left break-all">
+            {error}
+          </div>
+        )}
+
         <button
-          onClick={signIn}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+          onClick={handleSignIn}
+          disabled={signingIn}
+          className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
