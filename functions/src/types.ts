@@ -35,8 +35,14 @@ export interface AppUser {
   displayName: string; // used to show the user's name
   pictureUrl?: string; // URL of the user's profile picture
   lastMessageAt: Date; // timestamp of the last message sent by the user
+  lastMealReportAt?: Date; // timestamp of the last meal report
   personalInfo?: PersonalInfo; // user's personal information
   nutritionalGoal?: NutritionalGoal; // user's nutritional goals
+  todayDate?: string; // YYYY-MM-DD
+  todayCalories?: number;
+  todayProtein?: number;
+  todayFat?: number;
+  todayCarbs?: number;
 }
 
 // 3. chat message

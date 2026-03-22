@@ -113,6 +113,10 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
     return Array.from(dayMap.values()).sort((a, b) => b.date.getTime() - a.date.getTime());
   }, [messages]);
 
+  const todayNutrition = useMemo(() => {
+    return dailyNutrition.find((d) => isSameDay(d.date, new Date())) || null;
+  }, [dailyNutrition]);
+
   if (!ready || loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -169,6 +173,42 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
           </Link>
         </div>
       </header>
+
+      {/* Today's summary */}
+      {goal && (
+        <div className="max-w-2xl mx-auto px-4 pt-3">
+          <div className="bg-white rounded-xl border border-slate-100 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-slate-500">今日の達成率</span>
+              <span className="text-[11px] text-slate-400">
+                {todayNutrition ? `${todayNutrition.mealCount}食` : "報告なし"}
+              </span>
+            </div>
+            <div className="grid grid-cols-4 gap-3">
+              {[
+                { label: "kcal", value: todayNutrition?.totalCalories || 0, max: goal.targetCalories, color: "text-slate-700" },
+                { label: "P", value: todayNutrition?.totalProtein || 0, max: goal.protein, color: "text-blue-600" },
+                { label: "F", value: todayNutrition?.totalFat || 0, max: goal.fat, color: "text-amber-600" },
+                { label: "C", value: todayNutrition?.totalCarbs || 0, max: goal.carbs, color: "text-emerald-600" },
+              ].map((item) => {
+                const pct = item.max > 0 ? Math.round((item.value / item.max) * 100) : 0;
+                const isOver = pct > 100;
+                return (
+                  <div key={item.label} className="text-center">
+                    <p className={`text-2xl font-bold tabular-nums ${isOver ? "text-red-600" : item.color}`}>
+                      {pct}<span className="text-xs font-normal">%</span>
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">{item.label}</p>
+                    <p className="text-[10px] text-slate-400 tabular-nums">
+                      {Math.round(item.value)}/{item.max}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="max-w-2xl mx-auto px-4 pt-3">

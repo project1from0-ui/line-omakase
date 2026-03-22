@@ -1,9 +1,10 @@
-import {onRequest} from "firebase-functions/v2/https";
+import {onRequest, onCall, HttpsError} from "firebase-functions/v2/https";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
 import axios from "axios";
 import {GoogleGenerativeAI, Content, Part, SchemaType, Schema} from "@google/generative-ai";
-import {Tenant, AppUser, AppMessage, NutritionData} from "./types"; // importing type definitions
+import {Tenant, AppUser, AppMessage, NutritionData} from "./types";
+import {onSchedule} from "firebase-functions/v2/scheduler";
 
 // initialize Firebase Admin SDK
 admin.initializeApp();
@@ -299,10 +300,22 @@ export const lineWebhook = onRequest({region: "asia-northeast1", memory: "1GiB"}
         ...(nutrition.calories > 0 && {nutrition}),
       });
 
-      // update lastMealReportAt on user document when food is detected
+      // update lastMealReportAt and today's nutrition totals when food is detected
       if (nutrition.calories > 0) {
         const usersRef = db.collection(`tenants/${botId}/users`).doc(userId);
-        await usersRef.set({lastMealReportAt: new Date()}, {merge: true});
+        const todayStr = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        const existingUser = await usersRef.get();
+        const existingData = existingUser.data();
+        const isSameDay = existingData?.todayDate === todayStr;
+
+        await usersRef.set({
+          lastMealReportAt: new Date(),
+          todayDate: todayStr,
+          todayCalories: isSameDay ? (existingData?.todayCalories || 0) + nutrition.calories : nutrition.calories,
+          todayProtein: isSameDay ? (existingData?.todayProtein || 0) + nutrition.protein : nutrition.protein,
+          todayFat: isSameDay ? (existingData?.todayFat || 0) + nutrition.fat : nutrition.fat,
+          todayCarbs: isSameDay ? (existingData?.todayCarbs || 0) + nutrition.carbs : nutrition.carbs,
+        }, {merge: true});
       }
 
       // reply via LINE with natural text only
@@ -317,4 +330,86 @@ export const lineWebhook = onRequest({region: "asia-northeast1", memory: "1GiB"}
     console.error("System Error:", error);
     res.status(500).send("Internal Server Error");
   }
+});
+
+// ---------------------------------------------------------
+// Callable: Refresh all user profiles for a tenant
+// ---------------------------------------------------------
+export const refreshUserProfiles = onCall({region: "asia-northeast1"}, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Authentication required");
+  }
+
+  const uid = request.auth.uid;
+
+  // Find tenant owned by this user
+  const tenantsSnap = await db.collection("tenants").where("ownerId", "==", uid).get();
+  if (tenantsSnap.empty) {
+    throw new HttpsError("not-found", "No tenant found for this user");
+  }
+
+  const tenantDoc = tenantsSnap.docs[0];
+  const tenantId = tenantDoc.id;
+  const tenantData = tenantDoc.data() as Tenant;
+
+  // Get all users
+  const usersSnap = await db.collection(`tenants/${tenantId}/users`).get();
+  let updated = 0;
+
+  for (const userDoc of usersSnap.docs) {
+    const userId = userDoc.id;
+    try {
+      const profileRes = await axios.get(`https://api.line.me/v2/bot/profile/${userId}`, {
+        headers: {Authorization: `Bearer ${tenantData.lineAccessToken}`},
+      });
+      await userDoc.ref.update({
+        displayName: profileRes.data.displayName,
+        ...(profileRes.data.pictureUrl && {pictureUrl: profileRes.data.pictureUrl}),
+      });
+      updated++;
+    } catch (err) {
+      console.warn(`Failed to fetch profile for ${userId}:`, err);
+    }
+  }
+
+  return {updated, total: usersSnap.size};
+});
+
+// ---------------------------------------------------------
+// Scheduled: Check for unreported users and create notifications
+// Runs every day at 21:00 JST (12:00 UTC)
+// ---------------------------------------------------------
+export const checkUnreportedUsers = onSchedule({
+  schedule: "0 12 * * *",
+  region: "asia-northeast1",
+  timeZone: "Asia/Tokyo",
+}, async () => {
+  const tenantsSnap = await db.collection("tenants").get();
+  const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+
+  for (const tenantDoc of tenantsSnap.docs) {
+    const tenantId = tenantDoc.id;
+    const usersSnap = await db.collection(`tenants/${tenantId}/users`).get();
+
+    const unreported: string[] = [];
+    for (const userDoc of usersSnap.docs) {
+      const data = userDoc.data();
+      const lastReport = data.lastMealReportAt?.toDate();
+      if (!lastReport || lastReport < twelveHoursAgo) {
+        unreported.push(data.displayName || userDoc.id);
+      }
+    }
+
+    if (unreported.length > 0) {
+      await db.collection(`tenants/${tenantId}/notifications`).add({
+        type: "unreported_users",
+        message: `${unreported.length}名が12時間以上食事報告していません: ${unreported.slice(0, 5).join(", ")}${unreported.length > 5 ? ` 他${unreported.length - 5}名` : ""}`,
+        userCount: unreported.length,
+        createdAt: new Date(),
+        read: false,
+      });
+    }
+  }
+
+  console.log(`Checked ${tenantsSnap.size} tenants for unreported users`);
 });

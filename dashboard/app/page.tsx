@@ -305,10 +305,24 @@ export default function DashboardOverview() {
                   {user.nutritionalGoal ? (
                     <div className="flex flex-col gap-1.5">
                       <div className="flex items-baseline gap-2">
-                        <span className="text-xs font-bold text-slate-700 tabular-nums">
-                          {user.nutritionalGoal.targetCalories}
-                          <span className="text-[10px] font-normal text-slate-400 ml-0.5">kcal/日</span>
-                        </span>
+                        {(() => {
+                          const isToday = user.todayDate === new Date().toISOString().slice(0, 10);
+                          const todayCal = isToday ? (user.todayCalories || 0) : 0;
+                          const pct = Math.round((todayCal / user.nutritionalGoal!.targetCalories) * 100);
+                          return (
+                            <>
+                              <span className={`text-xs font-bold tabular-nums ${pct > 100 ? "text-red-600" : "text-slate-700"}`}>
+                                {todayCal}
+                                <span className="text-[10px] font-normal text-slate-400 ml-0.5">
+                                  / {user.nutritionalGoal!.targetCalories} kcal
+                                </span>
+                              </span>
+                              <span className={`text-[10px] font-semibold tabular-nums ${pct > 100 ? "text-red-500" : pct > 0 ? "text-emerald-500" : "text-slate-400"}`}>
+                                {pct}%
+                              </span>
+                            </>
+                          );
+                        })()}
                         {user.personalInfo?.purpose && (
                           <span className="text-[10px] text-slate-400">
                             {user.personalInfo.purpose === "lose_weight" ? "減量" : user.personalInfo.purpose === "bulk_up" ? "増量" : "維持"}

@@ -38,6 +38,11 @@ export interface AppUser {
   lastMealReportAt?: Date; // timestamp of the last meal report
   personalInfo?: PersonalInfo; // user's personal information
   nutritionalGoal?: NutritionalGoal; // user's nutritional goals
+  todayDate?: string; // YYYY-MM-DD
+  todayCalories?: number;
+  todayProtein?: number;
+  todayFat?: number;
+  todayCarbs?: number;
 }
 
 // 3. chat message

@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import { db } from "../../src/lib/firebase";
+import { functions } from "../../src/lib/firebase";
 import { useRequireAuth } from "../../src/hooks/useRequireAuth";
 import { useAuth } from "../../src/contexts/AuthContext";
 import { useToast } from "../../src/components/Toast";
@@ -16,6 +18,7 @@ export default function SettingsPage() {
   const [systemPrompt, setSystemPrompt] = useState("");
   const [originalPrompt, setOriginalPrompt] = useState("");
   const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const webhookUrl = `https://asia-northeast1-line-omakase.cloudfunctions.net/lineWebhook`;
@@ -50,6 +53,20 @@ export default function SettingsPage() {
     }
   };
 
+  const handleRefreshProfiles = async () => {
+    setRefreshing(true);
+    try {
+      const refreshFn = httpsCallable<Record<string, never>, { updated: number; total: number }>(functions, "refreshUserProfiles");
+      const result = await refreshFn({});
+      showToast(`${result.data.updated}/${result.data.total} 件のプロフィールを更新しました`);
+    } catch (error) {
+      console.error("プロフィール更新エラー:", error);
+      showToast("プロフィール更新に失敗しました", "error");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const hasChanges = systemPrompt !== originalPrompt;
 
   if (!ready || loading) {
@@ -62,7 +79,6 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
           <Link href="/" className="text-slate-400 hover:text-slate-600 transition-colors">
@@ -109,6 +125,21 @@ export default function SettingsPage() {
               コピー
             </button>
           </div>
+        </div>
+
+        {/* User profiles */}
+        <div className="bg-white rounded-xl border border-slate-100 p-4">
+          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">ユーザー管理</h2>
+          <p className="text-[11px] text-slate-400 mb-3">
+            LINE からユーザーのアイコンと表示名を再取得します。
+          </p>
+          <button
+            onClick={handleRefreshProfiles}
+            disabled={refreshing}
+            className="px-4 py-1.5 bg-slate-800 text-white rounded-lg text-xs font-medium hover:bg-slate-700 disabled:bg-slate-300 transition-colors"
+          >
+            {refreshing ? "更新中..." : "プロフィールを一括更新"}
+          </button>
         </div>
 
         {/* System Prompt */}
