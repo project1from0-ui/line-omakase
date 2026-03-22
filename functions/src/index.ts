@@ -82,15 +82,35 @@ const getChatHistory = async (botId: string, userId: string): Promise<Content[]>
 // Helper: save message to Firestore
 // ---------------------------------------------------------
 
-// 1. update user info
-const updateUserProfile = async (botId:string, userId:string) => {
+// 1. update user info (fetch LINE profile on first contact)
+const updateUserProfile = async (botId: string, userId: string, accessToken: string) => {
   const usersRef = db.collection(`tenants/${botId}/users`).doc(userId);
-  const userData: AppUser = {
+  const existingDoc = await usersRef.get();
+
+  const updateData: Partial<AppUser> = {
     lineUserId: userId,
-    displayName: "User " + userId.substring(0, 5),
     lastMessageAt: new Date(),
   };
-  await usersRef.set(userData, {merge: true});
+
+  // Fetch LINE profile if user is new or has no displayName yet
+  if (!existingDoc.exists || !existingDoc.data()?.pictureUrl) {
+    try {
+      const profileRes = await axios.get(`https://api.line.me/v2/bot/profile/${userId}`, {
+        headers: {Authorization: `Bearer ${accessToken}`},
+      });
+      updateData.displayName = profileRes.data.displayName;
+      if (profileRes.data.pictureUrl) {
+        updateData.pictureUrl = profileRes.data.pictureUrl;
+      }
+    } catch (err) {
+      console.warn(`Failed to fetch LINE profile for ${userId}:`, err);
+      if (!existingDoc.exists) {
+        updateData.displayName = "User " + userId.substring(0, 5);
+      }
+    }
+  }
+
+  await usersRef.set(updateData, {merge: true});
 };
 
 // 2. save message log
@@ -193,7 +213,7 @@ export const lineWebhook = onRequest({region: "asia-northeast1", memory: "1GiB"}
       const replyToken = event.replyToken;
       const messageType = event.message.type;
       // update user profile
-      await updateUserProfile(botId, userId);
+      await updateUserProfile(botId, userId, tenantData.lineAccessToken);
 
       // branch for message types
       let userPromptParts: Part[] = [];
@@ -278,6 +298,12 @@ export const lineWebhook = onRequest({region: "asia-northeast1", memory: "1GiB"}
         createdAt: new Date(),
         ...(nutrition.calories > 0 && {nutrition}),
       });
+
+      // update lastMealReportAt on user document when food is detected
+      if (nutrition.calories > 0) {
+        const usersRef = db.collection(`tenants/${botId}/users`).doc(userId);
+        await usersRef.set({lastMealReportAt: new Date()}, {merge: true});
+      }
 
       // reply via LINE with natural text only
       await replyToLine(replyToken, parsed.replyText, tenantData.lineAccessToken);
