@@ -8,6 +8,7 @@ import { differenceInHours, differenceInMinutes, formatDistanceToNow } from "dat
 import { useRequireAuth } from "../src/hooks/useRequireAuth";
 import { ja } from "date-fns/locale";
 import Link from "next/link";
+import { NotificationBell } from "../src/components/NotificationBell";
 
 const ALERT_THRESHOLD_HOURS = 12;
 
@@ -182,6 +183,7 @@ export default function DashboardOverview() {
             <span className="text-xs text-slate-400 tabular-nums">
               {users.length}名
             </span>
+            {tenantId && <NotificationBell tenantId={tenantId} />}
             <Link
               href="/settings"
               className="text-slate-400 hover:text-slate-600 transition-colors"

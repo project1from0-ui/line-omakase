@@ -244,6 +244,59 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
   );
 }
 
+function WeeklyTrend({ dailyNutrition, goal }: { dailyNutrition: DailyNutrition[]; goal?: AppUser["nutritionalGoal"] }) {
+  const today = new Date();
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - (6 - i));
+    return startOfDay(d);
+  });
+
+  const maxCal = goal?.targetCalories || Math.max(...dailyNutrition.map((d) => d.totalCalories), 1);
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-100 p-4 mb-3">
+      <h3 className="text-xs font-semibold text-slate-500 mb-3">過去7日間</h3>
+      <div className="flex items-end gap-1.5 h-24">
+        {days.map((day) => {
+          const data = dailyNutrition.find((d) => isSameDay(d.date, day));
+          const cal = data?.totalCalories || 0;
+          const heightPct = maxCal > 0 ? Math.min((cal / maxCal) * 100, 100) : 0;
+          const isOver = goal && cal > goal.targetCalories;
+          const isToday = isSameDay(day, today);
+
+          return (
+            <div key={day.toISOString()} className="flex-1 flex flex-col items-center gap-1">
+              <span className="text-[9px] text-slate-400 tabular-nums">
+                {cal > 0 ? Math.round(cal) : ""}
+              </span>
+              <div className="w-full flex items-end" style={{ height: "60px" }}>
+                <div
+                  className={`w-full rounded-sm transition-all ${
+                    isOver ? "bg-red-400" : cal > 0 ? "bg-blue-400" : "bg-slate-100"
+                  }`}
+                  style={{ height: `${Math.max(heightPct, cal > 0 ? 4 : 2)}%` }}
+                />
+              </div>
+              <span className={`text-[10px] ${isToday ? "font-bold text-slate-700" : "text-slate-400"}`}>
+                {format(day, "E", { locale: ja })}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      {goal && (
+        <div className="flex items-center gap-2 mt-2">
+          <div className="flex-1 h-px bg-slate-100 relative">
+            <div className="absolute inset-0 border-t border-dashed border-slate-300" />
+          </div>
+          <span className="text-[9px] text-slate-400">目標 {goal.targetCalories}kcal</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NutritionTab({ dailyNutrition, goal }: { dailyNutrition: DailyNutrition[]; goal?: AppUser["nutritionalGoal"] }) {
   if (dailyNutrition.length === 0) {
     return (
@@ -255,6 +308,7 @@ function NutritionTab({ dailyNutrition, goal }: { dailyNutrition: DailyNutrition
 
   return (
     <div className="flex flex-col gap-3">
+      <WeeklyTrend dailyNutrition={dailyNutrition} goal={goal} />
       {dailyNutrition.map((day) => (
         <div key={day.date.toISOString()} className="bg-white rounded-xl border border-slate-100 p-4">
           <div className="flex items-center justify-between mb-3">
