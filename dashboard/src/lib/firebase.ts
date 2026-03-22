@@ -26,13 +26,13 @@ function getFirebaseApp() {
 }
 
 export const db: Firestore = new Proxy({} as Firestore, {
-  get(_, prop) { if (!_db) _db = getFirestore(getFirebaseApp()); return (_db as Record<string, unknown>)[prop as string]; },
+  get(_, prop) { if (!_db) _db = getFirestore(getFirebaseApp()); return (_db as unknown as Record<string, unknown>)[prop as string]; },
 });
 
 export const auth: Auth = new Proxy({} as Auth, {
-  get(_, prop) { if (!_auth) _auth = getAuth(getFirebaseApp()); return (_auth as Record<string, unknown>)[prop as string]; },
+  get(_, prop) { if (!_auth) _auth = getAuth(getFirebaseApp()); return (_auth as unknown as Record<string, unknown>)[prop as string]; },
 });
 
 export const functions: Functions = new Proxy({} as Functions, {
-  get(_, prop) { if (!_functions) _functions = getFunctions(getFirebaseApp(), "asia-northeast1"); return (_functions as Record<string, unknown>)[prop as string]; },
+  get(_, prop) { if (!_functions) _functions = getFunctions(getFirebaseApp(), "asia-northeast1"); return (_functions as unknown as Record<string, unknown>)[prop as string]; },
 });
