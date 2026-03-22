@@ -7,14 +7,14 @@ import { db } from "../../../../src/lib/firebase";
 import { useRouter } from "next/navigation";
 import { PersonalInfo, ActivityLevel, Purpose } from "../../../../src/types";
 import { calculateNutritionalGoal } from "../../../../src/lib/calculateNutrition";
+import { useRequireAuth } from "../../../../src/hooks/useRequireAuth";
 
 // Next.js 15+ の params は Promise として扱う必要があります
 export default function GoalSettingPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const userId = resolvedParams.id;
   const router = useRouter();
-  
-  const BOT_ID = "Uf6b83d5863bf2547760bf6e86bcd658a";
+  const { tenantId, ready } = useRequireAuth();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<PersonalInfo>({
@@ -48,7 +48,8 @@ export default function GoalSettingPage({ params }: { params: Promise<{ id: stri
       const goal = calculateNutritionalGoal(formData);
 
       // 2. Firestoreの該当ユーザードキュメントを更新
-      const userRef = doc(db, `tenants/${BOT_ID}/users`, userId);
+      if (!tenantId) return;
+      const userRef = doc(db, `tenants/${tenantId}/users`, userId);
       await updateDoc(userRef, {
         personalInfo: formData,
         nutritionalGoal: goal,
