@@ -293,9 +293,9 @@ export const lineWebhook = onRequest({region: "asia-northeast1", memory: "1GiB"}
         parsed.carbs >= 0 && parsed.carbs <= 500
       );
 
-      const nutrition: NutritionData = isValidNutrition
-        ? {calories: parsed.calories, protein: parsed.protein, fat: parsed.fat, carbs: parsed.carbs}
-        : {calories: 0, protein: 0, fat: 0, carbs: 0};
+      const nutrition: NutritionData = isValidNutrition ?
+        {calories: parsed.calories, protein: parsed.protein, fat: parsed.fat, carbs: parsed.carbs} :
+        {calories: 0, protein: 0, fat: 0, carbs: 0};
 
       if (!isValidNutrition && (parsed.calories > 0 || parsed.protein > 0)) {
         console.warn(`Unrealistic nutrition values rejected: ${JSON.stringify(parsed)}`);
