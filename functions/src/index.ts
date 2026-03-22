@@ -355,6 +355,12 @@ export const sendPushMessage = onCall({region: "asia-northeast1"}, async (reques
   const tenantId = tenantDoc.id;
   const tenantData = tenantDoc.data() as Tenant;
 
+  // Verify lineUserId belongs to this trainer's tenant
+  const userDoc = await db.collection(`tenants/${tenantId}/users`).doc(lineUserId).get();
+  if (!userDoc.exists) {
+    throw new HttpsError("not-found", "User not found in your tenant");
+  }
+
   // Send push message via LINE API
   await axios.post("https://api.line.me/v2/bot/message/push", {
     to: lineUserId,

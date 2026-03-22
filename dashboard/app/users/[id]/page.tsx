@@ -268,23 +268,34 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
             {/* Push message input */}
             <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-3">
               <div className="max-w-2xl mx-auto flex gap-2">
-                <textarea
-                  value={pushText}
-                  onChange={(e) => setPushText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendPush();
-                    }
-                  }}
-                  placeholder="トレーナーからメッセージを送信..."
-                  rows={1}
-                  className="flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+                <div className="flex-1 flex flex-col gap-0.5">
+                  <textarea
+                    value={pushText}
+                    onChange={(e) => setPushText(e.target.value.slice(0, 5000))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendPush();
+                      }
+                    }}
+                    placeholder="トレーナーからメッセージを送信..."
+                    rows={1}
+                    className={`resize-none rounded-xl border px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:border-transparent ${
+                      pushText.length > 4800
+                        ? "border-red-300 focus:ring-red-400"
+                        : "border-slate-200 focus:ring-blue-500"
+                    }`}
+                  />
+                  {pushText.length > 4000 && (
+                    <p className={`text-[10px] text-right tabular-nums ${pushText.length >= 5000 ? "text-red-500" : "text-slate-400"}`}>
+                      {pushText.length} / 5000
+                    </p>
+                  )}
+                </div>
                 <button
                   onClick={handleSendPush}
-                  disabled={!pushText.trim() || sending}
-                  className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium disabled:opacity-40 hover:bg-blue-700 transition-colors"
+                  disabled={!pushText.trim() || sending || pushText.length >= 5000}
+                  className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium disabled:opacity-40 hover:bg-blue-700 transition-colors self-start"
                 >
                   {sending ? "送信中" : "送信"}
                 </button>
