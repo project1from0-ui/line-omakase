@@ -32,6 +32,6 @@ export function getFunctions_() {
 // Eager init only in browser (not during SSR/build)
 const isClient = typeof window !== "undefined";
 
-export const db = isClient ? getDb() : (null as ReturnType<typeof getDb>);
-export const auth = isClient ? getAuth_() : (null as ReturnType<typeof getAuth_>);
-export const functions = isClient ? getFunctions_() : (null as ReturnType<typeof getFunctions_>);
+export const db = isClient ? getDb() : (null as unknown as ReturnType<typeof getDb>);
+export const auth = isClient ? getAuth_() : (null as unknown as ReturnType<typeof getAuth_>);
+export const functions = isClient ? getFunctions_() : (null as unknown as ReturnType<typeof getFunctions_>);
