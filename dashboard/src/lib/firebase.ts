@@ -1,7 +1,7 @@
-import { initializeApp, getApp, getApps } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
-import { getFunctions } from "firebase/functions";
+import { initializeApp, getApp, getApps, FirebaseApp } from "firebase/app";
+import { getFirestore, Firestore } from "firebase/firestore";
+import { getAuth, Auth } from "firebase/auth";
+import { getFunctions, Functions } from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -13,9 +13,26 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
-const auth = getAuth(app);
-const functions = getFunctions(app, "asia-northeast1");
+let _app: FirebaseApp | undefined;
+let _db: Firestore | undefined;
+let _auth: Auth | undefined;
+let _functions: Functions | undefined;
 
-export { db, auth, functions };
+function getFirebaseApp() {
+  if (!_app) {
+    _app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+  }
+  return _app;
+}
+
+export const db: Firestore = new Proxy({} as Firestore, {
+  get(_, prop) { if (!_db) _db = getFirestore(getFirebaseApp()); return (_db as Record<string, unknown>)[prop as string]; },
+});
+
+export const auth: Auth = new Proxy({} as Auth, {
+  get(_, prop) { if (!_auth) _auth = getAuth(getFirebaseApp()); return (_auth as Record<string, unknown>)[prop as string]; },
+});
+
+export const functions: Functions = new Proxy({} as Functions, {
+  get(_, prop) { if (!_functions) _functions = getFunctions(getFirebaseApp(), "asia-northeast1"); return (_functions as Record<string, unknown>)[prop as string]; },
+});
