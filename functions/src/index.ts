@@ -55,8 +55,13 @@ const getChatHistory = async (botId: string, userId: string): Promise<Content[]>
   // reverse to chronological order
   historySnapshot.docs.reverse().forEach((doc) => {
     const data = doc.data() as AppMessage;
-    if (data.type !== "text") return; // skip non-text messages
+    if (data.sender === "trainer") return; // skip trainer messages
     const role = data.sender === "user" ? "user" : "model";
+    // represent image messages as text so AI retains meal context
+    if (data.type === "image") {
+      history.push({role, parts: [{text: "[食事画像を送信しました]"}]});
+      return;
+    }
     history.push({
       role: role,
       parts: [{text: data.content}],
@@ -77,6 +82,50 @@ const getChatHistory = async (botId: string, userId: string): Promise<Content[]>
   }
 
   return cleanHistory;
+};
+
+// ---------------------------------------------------------
+// Helper: build personalized system instruction for Gemini
+// ---------------------------------------------------------
+const buildSystemInstruction = (tenantData: Tenant, userData: Partial<AppUser>): string => {
+  const base = tenantData.systemPrompt || "";
+
+  const info = userData.personalInfo;
+  const goal = userData.nutritionalGoal;
+
+  const purposeLabel: Record<string, string> = {
+    lose_weight: "減量",
+    maintain: "体重維持",
+    bulk_up: "増量",
+  };
+  const activityLabel: Record<string, string> = {
+    sedentary: "ほぼ運動しない",
+    light: "軽い運動（週1-3回）",
+    moderate: "中程度の運動（週3-5回）",
+    active: "激しい運動（週6-7回）",
+    very_active: "非常に激しい運動・肉体労働",
+  };
+
+  const profileSection = info ? `
+【クライアント情報】
+- 性別: ${info.sex === "male" ? "男性" : "女性"}
+- 年齢: ${info.age}歳 / 身長: ${info.height}cm / 体重: ${info.weight}kg / 目標体重: ${info.targetWeight}kg
+- 活動レベル: ${activityLabel[info.activityLevel] || info.activityLevel}
+- 目的: ${purposeLabel[info.purpose] || info.purpose}
+${info.allergies ? `- アレルギー: ${info.allergies}（この食材・成分を含む食事を勧めないこと）` : ""}
+${info.medicalHistory ? `- 既往歴: ${info.medicalHistory}（指導内容に必ず考慮すること）` : ""}
+${info.medication ? `- 服薬中: ${info.medication}（食事との相互作用に注意すること）` : ""}` : "";
+
+  const goalSection = goal ? `
+【1日の栄養目標】
+- 目標カロリー: ${goal.targetCalories}kcal
+- タンパク質: ${goal.protein}g / 脂質: ${goal.fat}g / 炭水化物: ${goal.carbs}g
+この目標値を基準に、今日の摂取状況を踏まえて具体的な指導をすること。` : "";
+
+  return base + profileSection + goalSection +
+    "\n\n重要: 返答は必ずJSONフォーマットで返してください。" +
+    "replyTextには、食事に関するメッセージの場合は「■ 栄養素」「■ 総合評価」「■ 次回の指示」「■ 理由」のセクションを含む詳細な栄養指導テキストを書いてください。食事以外の場合は自然な日本語の返答を書いてください。" +
+    "calories・protein・fat・carbsには食事から推定した栄養値（整数）を入れ、食事でない場合は0にしてください。";
 };
 
 // ---------------------------------------------------------
@@ -214,8 +263,10 @@ export const lineWebhook = onRequest({region: "asia-northeast1", memory: "1GiB"}
       const userId = event.source.userId;
       const replyToken = event.replyToken;
       const messageType = event.message.type;
-      // update user profile
+      // update user profile and fetch current user data for personalization
       await updateUserProfile(botId, userId, tenantData.lineAccessToken);
+      const userSnap = await db.collection(`tenants/${botId}/users`).doc(userId).get();
+      const userData = (userSnap.data() || {}) as Partial<AppUser>;
 
       // branch for message types
       let userPromptParts: Part[] = [];
@@ -259,11 +310,7 @@ export const lineWebhook = onRequest({region: "asia-northeast1", memory: "1GiB"}
       const history = await getChatHistory(botId, userId);
       const model = genAI.getGenerativeModel({
         model: "gemini-2.5-flash-lite",
-        systemInstruction:
-          (tenantData.systemPrompt || "") +
-          "\n\n重要: 返答は必ずJSONフォーマットで返してください。" +
-          "replyTextには、食事に関するメッセージの場合は「■ 栄養素」「■ 総合評価」「■ 次回の指示」「■ 理由」のセクションを含む詳細な栄養指導テキストを書いてください。食事以外の場合は自然な日本語の返答を書いてください。" +
-          "calories・protein・fat・carbsには食事から推定した栄養値（整数）を入れ、食事でない場合は0にしてください。",
+        systemInstruction: buildSystemInstruction(tenantData, userData),
       });
       const chatSession = model.startChat({
         history: history,
@@ -276,14 +323,15 @@ export const lineWebhook = onRequest({region: "asia-northeast1", memory: "1GiB"}
 
       console.log(`Bot (${botId}) context length: ${history.length} messages`);
 
-      const result = await chatSession.sendMessage(userPromptParts);
-      const parsed = JSON.parse(result.response.text()) as {
-        replyText: string;
-        calories: number;
-        protein: number;
-        fat: number;
-        carbs: number;
-      };
+      let parsed: {replyText: string; calories: number; protein: number; fat: number; carbs: number};
+      try {
+        const result = await chatSession.sendMessage(userPromptParts);
+        parsed = JSON.parse(result.response.text());
+      } catch (aiError) {
+        console.error("Gemini API error:", aiError);
+        await replyToLine(replyToken, "申し訳ありません、ただいまAIの応答に問題が発生しています。少し時間をおいてから再度お送りください。", tenantData.lineAccessToken);
+        return;
+      }
 
       // Validate nutrition values — reject unrealistic outputs from Gemini
       const isValidNutrition = (
