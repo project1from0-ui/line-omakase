@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "../../src/lib/firebase";
 import { useAuth } from "../../src/contexts/AuthContext";
+import { useToast } from "../../src/components/Toast";
 
 export default function SetupPage() {
   const { user, tenantId, loading, refreshTenant, signOut } = useAuth();
   const router = useRouter();
+  const { showToast } = useToast();
 
   const [botUserId, setBotUserId] = useState("");
   const [channelSecret, setChannelSecret] = useState("");
@@ -40,7 +42,7 @@ export default function SetupPage() {
       router.replace("/");
     } catch (error) {
       console.error("セットアップエラー:", error);
-      alert("保存に失敗しました。入力内容を確認してください。");
+      showToast("保存に失敗しました。入力内容を確認してください。", "error");
     } finally {
       setIsSubmitting(false);
     }

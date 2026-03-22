@@ -5,16 +5,17 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../src/lib/firebase";
 import { useRequireAuth } from "../../src/hooks/useRequireAuth";
 import { useAuth } from "../../src/contexts/AuthContext";
+import { useToast } from "../../src/components/Toast";
 import Link from "next/link";
 
 export default function SettingsPage() {
   const { tenantId, ready } = useRequireAuth();
   const { user, signOut } = useAuth();
+  const { showToast } = useToast();
 
   const [systemPrompt, setSystemPrompt] = useState("");
   const [originalPrompt, setOriginalPrompt] = useState("");
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const webhookUrl = `https://asia-northeast1-line-omakase.cloudfunctions.net/lineWebhook`;
@@ -40,11 +41,10 @@ export default function SettingsPage() {
     try {
       await updateDoc(doc(db, "tenants", tenantId), { systemPrompt });
       setOriginalPrompt(systemPrompt);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      showToast("システムプロンプトを保存しました");
     } catch (error) {
       console.error("保存エラー:", error);
-      alert("保存に失敗しました。");
+      showToast("保存に失敗しました", "error");
     } finally {
       setSaving(false);
     }
@@ -103,7 +103,7 @@ export default function SettingsPage() {
               {webhookUrl}
             </code>
             <button
-              onClick={() => navigator.clipboard.writeText(webhookUrl)}
+              onClick={() => { navigator.clipboard.writeText(webhookUrl); showToast("コピーしました"); }}
               className="flex-shrink-0 text-xs text-blue-600 hover:text-blue-700 font-medium px-2 py-2"
             >
               コピー
@@ -125,7 +125,6 @@ export default function SettingsPage() {
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
           />
           <div className="flex items-center justify-end gap-3 mt-3">
-            {saved && <span className="text-xs text-emerald-600">保存しました</span>}
             <button
               onClick={handleSave}
               disabled={saving || !hasChanges}

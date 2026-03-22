@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { PersonalInfo } from "../../../../src/types";
 import { calculateNutritionalGoal } from "../../../../src/lib/calculateNutrition";
 import { useRequireAuth } from "../../../../src/hooks/useRequireAuth";
+import { useToast } from "../../../../src/components/Toast";
 import Link from "next/link";
 
 const defaultFormData: PersonalInfo = {
@@ -27,6 +28,7 @@ export default function GoalSettingPage({ params }: { params: Promise<{ id: stri
   const userId = resolvedParams.id;
   const router = useRouter();
   const { tenantId, ready } = useRequireAuth();
+  const { showToast } = useToast();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -72,11 +74,11 @@ export default function GoalSettingPage({ params }: { params: Promise<{ id: stri
         nutritionalGoal: goal,
       });
 
-      alert(`計算完了！\n目標カロリー: ${goal.targetCalories} kcal に設定しました。`);
+      showToast(`目標カロリー: ${goal.targetCalories} kcal に設定しました`);
       router.push(`/users/${userId}`);
     } catch (error) {
       console.error("保存エラー:", error);
-      alert("保存に失敗しました。");
+      showToast("保存に失敗しました", "error");
     } finally {
       setIsSubmitting(false);
     }
