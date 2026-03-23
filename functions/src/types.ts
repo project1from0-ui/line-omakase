@@ -4,6 +4,7 @@ export interface Tenant {
   lineChannelSecret: string; // used to verify LINE webhook signatures
   lineAccessToken: string; // used to call LINE Messaging API
   systemPrompt?: string; // used to specify the AI assistant's behavior
+  basicId?: string; // LINE bot's basic ID (@xxx) for friend add URL
 }
 
 // 2. app user (LINE)

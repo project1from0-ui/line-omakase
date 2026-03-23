@@ -411,6 +411,61 @@ export const lineWebhook = onRequest({region: "asia-northeast1", memory: "1GiB"}
 });
 
 // ---------------------------------------------------------
+// Callable: Setup tenant — auto-fetch bot info and set webhook
+// ---------------------------------------------------------
+export const setupTenant = onCall({region: "asia-northeast1"}, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Authentication required");
+  }
+
+  const {channelSecret, channelAccessToken} = request.data as {channelSecret: string; channelAccessToken: string};
+  if (!channelSecret?.trim() || !channelAccessToken?.trim()) {
+    throw new HttpsError("invalid-argument", "channelSecret and channelAccessToken are required");
+  }
+
+  // 1. Verify token and get bot info from LINE API
+  let botUserId: string;
+  let basicId: string;
+  try {
+    const botInfoRes = await axios.get("https://api.line.me/v2/bot/info", {
+      headers: {Authorization: `Bearer ${channelAccessToken}`},
+    });
+    botUserId = botInfoRes.data.userId;
+    basicId = botInfoRes.data.basicId;
+  } catch {
+    throw new HttpsError("invalid-argument", "Channel Access Token が無効です。LINE Developers コンソールで確認してください。");
+  }
+
+  // 2. Check if already registered by another trainer
+  const existingTenant = await db.collection("tenants").doc(botUserId).get();
+  if (existingTenant.exists && existingTenant.data()?.ownerId !== request.auth.uid) {
+    throw new HttpsError("already-exists", "このBotはすでに別のアカウントで登録されています。");
+  }
+
+  // 3. Auto-set webhook URL
+  const webhookUrl = "https://linewebhook-vajlecj5sq-an.a.run.app";
+  try {
+    await axios.put("https://api.line.me/v2/bot/channel/webhook/endpoint",
+      {webhook_endpoint: webhookUrl},
+      {headers: {Authorization: `Bearer ${channelAccessToken}`}},
+    );
+  } catch {
+    // Non-fatal: webhook URL setting may require additional permissions
+    console.warn("Failed to auto-set webhook URL, trainer must set it manually");
+  }
+
+  // 4. Create or update tenant
+  await db.collection("tenants").doc(botUserId).set({
+    ownerId: request.auth.uid,
+    lineChannelSecret: channelSecret.trim(),
+    lineAccessToken: channelAccessToken.trim(),
+    basicId,
+  }, {merge: true});
+
+  return {botUserId, basicId};
+});
+
+// ---------------------------------------------------------
 // Callable: Send push message from trainer to a LINE user
 // ---------------------------------------------------------
 export const sendPushMessage = onCall({region: "asia-northeast1"}, async (request) => {

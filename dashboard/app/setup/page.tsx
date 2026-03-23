@@ -4,8 +4,8 @@ export const dynamic = "force-dynamic";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { doc, setDoc } from "firebase/firestore";
-import { db } from "../../src/lib/firebase";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../../src/lib/firebase";
 import { useAuth } from "../../src/contexts/AuthContext";
 import { useToast } from "../../src/components/Toast";
 
@@ -14,37 +14,29 @@ export default function SetupPage() {
   const router = useRouter();
   const { showToast } = useToast();
 
-  const [botUserId, setBotUserId] = useState("");
   const [channelSecret, setChannelSecret] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (loading) return;
-    if (!user) {
-      router.replace("/login");
-    } else if (tenantId) {
-      router.replace("/");
-    }
+    if (!user) router.replace("/login");
+    else if (tenantId) router.replace("/");
   }, [user, tenantId, loading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
     setIsSubmitting(true);
-
+    setError(null);
     try {
-      await setDoc(doc(db, "tenants", botUserId), {
-        ownerId: user.uid,
-        lineChannelSecret: channelSecret,
-        lineAccessToken: accessToken,
-        createdAt: new Date(),
-      });
+      const fn = httpsCallable(functions, "setupTenant");
+      await fn({ channelSecret, channelAccessToken: accessToken });
       await refreshTenant();
+      showToast("連携しました");
       router.replace("/");
-    } catch (error) {
-      console.error("セットアップエラー:", error);
-      showToast("保存に失敗しました。入力内容を確認してください。", "error");
+    } catch (err: any) {
+      setError(err?.message || "エラーが発生しました");
     } finally {
       setIsSubmitting(false);
     }
@@ -63,31 +55,30 @@ export default function SetupPage() {
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 w-full max-w-md">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-lg font-bold text-slate-800">LINE Bot セットアップ</h1>
+            <h1 className="text-lg font-bold text-slate-800">LINE Bot 連携</h1>
             <p className="text-xs text-slate-400 mt-0.5">{user.email}</p>
           </div>
-          <button
-            onClick={signOut}
-            className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
-          >
+          <button onClick={signOut} className="text-xs text-slate-400 hover:text-slate-600 transition-colors">
             ログアウト
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Bot User ID</label>
-            <input
-              type="text"
-              value={botUserId}
-              onChange={(e) => setBotUserId(e.target.value)}
-              placeholder="Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-              required
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <p className="text-[11px] text-slate-400 mt-1">LINE Developers コンソール &gt; Bot 基本情報で確認できます</p>
+        {/* Guide */}
+        <div className="bg-slate-50 rounded-xl p-4 mb-5 space-y-2">
+          <p className="text-xs font-semibold text-slate-600">LINE Developers コンソールで確認できる2つの値を入力してください</p>
+          <div className="space-y-1">
+            <p className="text-xs text-slate-500">① <span className="font-medium">Basic settings タブ</span> → Channel secret</p>
+            <p className="text-xs text-slate-500">② <span className="font-medium">Messaging API タブ</span> → Channel access token（「発行」で生成）</p>
           </div>
+        </div>
 
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-600">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Channel Secret</label>
             <input
@@ -95,10 +86,10 @@ export default function SetupPage() {
               value={channelSecret}
               onChange={(e) => setChannelSecret(e.target.value)}
               required
+              placeholder="32文字の英数字"
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Channel Access Token</label>
             <input
@@ -106,16 +97,16 @@ export default function SetupPage() {
               value={accessToken}
               onChange={(e) => setAccessToken(e.target.value)}
               required
+              placeholder="長い英数字の文字列"
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:bg-blue-300 transition-colors"
+            disabled={isSubmitting || !channelSecret || !accessToken}
+            className="w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 transition-colors"
           >
-            {isSubmitting ? "保存中..." : "セットアップを完了"}
+            {isSubmitting ? "連携中..." : "連携する"}
           </button>
         </form>
       </div>

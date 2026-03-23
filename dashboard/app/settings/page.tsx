@@ -19,6 +19,7 @@ export default function SettingsPage() {
 
   const [systemPrompt, setSystemPrompt] = useState("");
   const [originalPrompt, setOriginalPrompt] = useState("");
+  const [basicId, setBasicId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -31,9 +32,11 @@ export default function SettingsPage() {
       const tenantRef = doc(db, "tenants", tenantId);
       const snap = await getDoc(tenantRef);
       if (snap.exists()) {
-        const prompt = snap.data().systemPrompt || "";
+        const data = snap.data();
+        const prompt = data.systemPrompt || "";
         setSystemPrompt(prompt);
         setOriginalPrompt(prompt);
+        setBasicId(data.basicId || null);
       }
       setLoading(false);
     };
@@ -109,6 +112,27 @@ export default function SettingsPage() {
             </button>
           </div>
         </div>
+
+        {/* Invite link */}
+        {basicId && (
+          <div className="bg-white rounded-xl border border-slate-100 p-4">
+            <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">クライアント招待リンク</h2>
+            <p className="text-[11px] text-slate-400 mb-2">
+              このリンクをクライアントに送ると、LINEでBotを友達追加できます。
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-600 break-all">
+                https://line.me/R/ti/p/{basicId}
+              </code>
+              <button
+                onClick={() => { navigator.clipboard.writeText(`https://line.me/R/ti/p/${basicId}`); showToast("コピーしました"); }}
+                className="flex-shrink-0 text-xs text-blue-600 hover:text-blue-700 font-medium px-2 py-2"
+              >
+                コピー
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Webhook URL */}
         <div className="bg-white rounded-xl border border-slate-100 p-4">
