@@ -106,12 +106,20 @@ const buildSystemInstruction = (tenantData: Tenant, userData: Partial<AppUser>):
     very_active: "非常に激しい運動・肉体労働",
   };
 
+  const age = info?.birthDate ?
+    Math.floor((Date.now() - new Date(info.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null;
+
   const profileSection = info ? `
 【クライアント情報】
-- 性別: ${info.sex === "male" ? "男性" : "女性"}
-- 年齢: ${info.age}歳 / 身長: ${info.height}cm / 体重: ${info.weight}kg / 目標体重: ${info.targetWeight}kg
+- 性別: ${info.sex === "male" ? "男性" : "女性"}${age !== null ? ` / 年齢: ${age}歳` : ""}
+- 身長: ${info.height}cm / 体重: ${info.weight}kg / 目標体重: ${info.targetWeight}kg
 - 活動レベル: ${activityLabel[info.activityLevel] || info.activityLevel}
+- 運動内容: ${info.exerciseType || "未記入"}
 - 目的: ${purposeLabel[info.purpose] || info.purpose}
+- 平均睡眠: ${info.sleepHours}時間 / 食事回数: ${info.mealFrequency}回/日
+${info.alcoholHabit ? `- 飲酒習慣: ${info.alcoholHabit}` : ""}
+${info.supplements ? `- サプリメント: ${info.supplements}` : ""}
+${info.foodPreferences ? `- 食の好み・苦手: ${info.foodPreferences}（好みに合った食事を提案すること）` : ""}
 ${info.allergies ? `- アレルギー: ${info.allergies}（この食材・成分を含む食事を勧めないこと）` : ""}
 ${info.medicalHistory ? `- 既往歴: ${info.medicalHistory}（指導内容に必ず考慮すること）` : ""}
 ${info.medication ? `- 服薬中: ${info.medication}（食事との相互作用に注意すること）` : ""}` : "";
@@ -267,6 +275,14 @@ export const lineWebhook = onRequest({region: "asia-northeast1", memory: "1GiB"}
       await updateUserProfile(botId, userId, tenantData.lineAccessToken);
       const userSnap = await db.collection(`tenants/${botId}/users`).doc(userId).get();
       const userData = (userSnap.data() || {}) as Partial<AppUser>;
+
+      // Require personal info before coaching
+      if (!userData.personalInfo) {
+        await replyToLine(replyToken,
+          "はじめまして！\nご登録ありがとうございます。\n\n担当トレーナーがあなたの情報を設定後、食事指導を開始します。\nトレーナーからの連絡をお待ちください。",
+          tenantData.lineAccessToken);
+        return;
+      }
 
       // branch for message types
       let userPromptParts: Part[] = [];

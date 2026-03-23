@@ -8,9 +8,21 @@ const ACTIVITY_MULTIPLIERS = {
   very_active: 1.9,    // 毎日激しい運動＋肉体労働
 };
 
+function calcAge(birthDate: string): number {
+  const today = new Date();
+  const birth = new Date(birthDate);
+  let age = today.getFullYear() - birth.getFullYear();
+  if (
+    today.getMonth() < birth.getMonth() ||
+    (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())
+  ) age--;
+  return age;
+}
+
 export const calculateNutritionalGoal = (info: PersonalInfo): NutritionalGoal => {
+  const age = calcAge(info.birthDate);
   // 1. BMR (Mifflin-St Jeor)
-  let bmr = 10 * info.weight + 6.25 * info.height - 5 * info.age;
+  let bmr = 10 * info.weight + 6.25 * info.height - 5 * age;
   bmr += info.sex === 'male' ? 5 : -161;
 
   // 2. TDEE

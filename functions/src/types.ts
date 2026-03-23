@@ -13,15 +13,22 @@ export type Purpose = "lose_weight" | "maintain" | "bulk_up";
 
 export interface PersonalInfo {
   sex: "male" | "female";
-  age: number;
+  birthDate: string; // YYYY-MM-DD
   height: number; // cm
   weight: number; // kg
   activityLevel: ActivityLevel;
+  exerciseType: string;
   purpose: Purpose;
   targetWeight: number; // kg
+  sleepHours: number;
+  mealFrequency: number;
+  alcoholHabit: string;
+  supplements: string;
+  foodPreferences: string;
   allergies: string;
-  medicalHistory: string; // hypertension, diabetes, kidney diseases 等
+  medicalHistory: string;
   medication: string;
+  consentGiven: boolean;
 }
 
 export interface NutritionalGoal {
