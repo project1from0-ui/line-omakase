@@ -122,15 +122,15 @@ export default function GoalSettingPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+      <header className="bg-slate-900 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Link href={`/users/${userId}`} className="text-slate-400 hover:text-slate-600 transition-colors">
+          <Link href={`/users/${userId}`} className="text-slate-400 hover:text-slate-200 transition-colors">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
           </Link>
           <div>
-            <h1 className="text-sm font-bold text-slate-800">目標・個人情報の設定</h1>
+            <h1 className="text-sm font-bold text-white">目標・個人情報の設定</h1>
             {displayName && <p className="text-[11px] text-slate-400">{displayName}</p>}
           </div>
         </div>
