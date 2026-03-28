@@ -120,13 +120,13 @@ export default function SettingsPage() {
             <p className="text-[11px] text-slate-400 mb-2">
               このリンクをクライアントに送ると、LINEでBotを友達追加できます。
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <code className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-600 break-all">
                 https://line.me/R/ti/p/{basicId}
               </code>
               <button
                 onClick={() => { navigator.clipboard.writeText(`https://line.me/R/ti/p/${basicId}`); showToast("コピーしました"); }}
-                className="flex-shrink-0 text-xs text-blue-600 hover:text-blue-700 font-medium px-2 py-2"
+                className="flex-shrink-0 text-xs text-blue-600 hover:text-blue-700 font-medium px-2 py-2.5"
               >
                 コピー
               </button>
@@ -140,13 +140,13 @@ export default function SettingsPage() {
           <p className="text-[11px] text-slate-400 mb-2">
             LINE Developers コンソールの Messaging API 設定で、以下の URL を Webhook URL に設定してください。
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <code className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-600 break-all">
               {webhookUrl}
             </code>
             <button
               onClick={() => { navigator.clipboard.writeText(webhookUrl); showToast("コピーしました"); }}
-              className="flex-shrink-0 text-xs text-blue-600 hover:text-blue-700 font-medium px-2 py-2"
+              className="flex-shrink-0 text-xs text-blue-600 hover:text-blue-700 font-medium px-2 py-2.5"
             >
               コピー
             </button>
@@ -162,7 +162,7 @@ export default function SettingsPage() {
           <button
             onClick={handleRefreshProfiles}
             disabled={refreshing}
-            className="px-4 py-1.5 bg-slate-800 text-white rounded-lg text-xs font-medium hover:bg-slate-700 disabled:bg-slate-300 transition-colors"
+            className="px-4 py-2.5 bg-slate-800 text-white rounded-lg text-xs font-medium hover:bg-slate-700 disabled:bg-slate-300 transition-colors"
           >
             {refreshing ? "更新中..." : "プロフィールを一括更新"}
           </button>
@@ -185,7 +185,7 @@ export default function SettingsPage() {
             <button
               onClick={handleSave}
               disabled={saving || !hasChanges}
-              className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 transition-colors"
+              className="px-4 py-2.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 transition-colors"
             >
               {saving ? "保存中..." : "保存"}
             </button>

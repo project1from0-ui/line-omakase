@@ -214,7 +214,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                 {todayNutrition ? `${todayNutrition.mealCount}食報告済み` : "まだ報告なし"}
               </span>
             </div>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-2">
               {[
                 { label: "カロリー", unit: "kcal", value: todayNutrition?.totalCalories || 0, max: goal.targetCalories, baseColor: "text-slate-700", bgColor: "bg-slate-500" },
                 { label: "タンパク質", unit: "P", value: todayNutrition?.totalProtein || 0, max: goal.protein, baseColor: "text-blue-600", bgColor: "bg-blue-500" },
@@ -226,8 +226,8 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                 const isOver = pctDisplay > 100;
                 return (
                   <div key={item.unit} className="flex flex-col items-center gap-1.5">
-                    <div className="relative w-14 h-14">
-                      <svg className="w-14 h-14 -rotate-90" viewBox="0 0 56 56">
+                    <div className="relative w-16 h-16 sm:w-14 sm:h-14">
+                      <svg className="w-16 h-16 sm:w-14 sm:h-14 -rotate-90" viewBox="0 0 56 56">
                         <circle cx="28" cy="28" r="22" fill="none" stroke="#f1f5f9" strokeWidth="5" />
                         <circle
                           cx="28" cy="28" r="22"
@@ -293,7 +293,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
           <>
             <ChatTab messages={messages} />
             {/* Push message input */}
-            <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 px-4 py-3">
+            <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 px-4 py-3 pb-[env(safe-area-inset-bottom,12px)]">
               <div className="max-w-2xl mx-auto flex gap-2 items-end">
                 <div className="flex-1 flex flex-col gap-0.5">
                   <textarea
@@ -522,7 +522,7 @@ function ChatTab({ messages }: { messages: AppMessage[] }) {
         const isTrainer = msg.sender === "trainer";
         return (
           <div key={msg.id} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-            <div className="flex flex-col gap-0.5 max-w-[80%]">
+            <div className="flex flex-col gap-0.5 max-w-[85%] sm:max-w-[80%]">
               {isTrainer && (
                 <span className="text-[10px] text-emerald-600 font-semibold px-1 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />

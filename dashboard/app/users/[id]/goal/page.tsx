@@ -141,7 +141,7 @@ export default function GoalSettingPage({ params }: { params: Promise<{ id: stri
 
           {/* 基本情報 */}
           <Section title="基本情報">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
               <Field label="性別">
                 <select name="sex" value={formData.sex} onChange={handleChange} className={inputCls}>
                   <option value="male">男性</option>
@@ -163,7 +163,7 @@ export default function GoalSettingPage({ params }: { params: Promise<{ id: stri
           {/* 目標 */}
           <Section title="目標">
             <div className="grid grid-cols-1 gap-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                 <Field label="目的">
                   <select name="purpose" value={formData.purpose} onChange={handleChange} className={inputCls}>
                     <option value="lose_weight">減量</option>
@@ -192,7 +192,7 @@ export default function GoalSettingPage({ params }: { params: Promise<{ id: stri
 
           {/* 生活習慣 */}
           <Section title="生活習慣">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
               <Field label="平均睡眠時間 (時間)">
                 <input type="number" step="0.5" min="1" max="14" name="sleepHours" value={formData.sleepHours} onChange={handleChange} className={inputCls} />
               </Field>
@@ -248,14 +248,14 @@ export default function GoalSettingPage({ params }: { params: Promise<{ id: stri
             </label>
           </div>
 
-          <div className="flex justify-end gap-3 pb-6">
-            <button type="button" onClick={() => router.push(`/users/${userId}`)} className="px-5 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3 pb-6">
+            <button type="button" onClick={() => router.push(`/users/${userId}`)} className="px-5 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors">
               キャンセル
             </button>
             <button
               type="submit"
               disabled={isSubmitting || !formData.consentGiven}
-              className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 transition-colors"
+              className="px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 transition-colors"
             >
               {isSubmitting ? "保存中..." : "目標を保存"}
             </button>

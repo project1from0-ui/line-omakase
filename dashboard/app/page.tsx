@@ -61,7 +61,7 @@ function PFCBar({ goal }: { goal: AppUser["nutritionalGoal"] }) {
         <div className="bg-amber-400" style={{ width: `${fPct}%` }} />
         <div className="bg-emerald-400" style={{ width: `${cPct}%` }} />
       </div>
-      <span className="text-[10px] text-slate-400 tabular-nums whitespace-nowrap">
+      <span className="text-[11px] text-slate-400 tabular-nums whitespace-nowrap">
         P{goal.protein} F{goal.fat} C{goal.carbs}
       </span>
     </div>
@@ -215,16 +215,25 @@ export default function DashboardOverview() {
               <p className="text-[10px] text-slate-400 mt-0.5">クライアント管理</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {alertCount > 0 && (
-              <span className="flex items-center gap-1 px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full text-xs font-medium border border-red-500/30">
-                <span className="w-1.5 h-1.5 bg-red-400 rounded-full animate-pulse" />
-                {alertCount}
-              </span>
-            )}
-            <span className="text-xs text-slate-500 tabular-nums">
-              {users.length}名
-            </span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 bg-slate-800 rounded-full px-3 py-1">
+              <span className="text-xs text-slate-400 tabular-nums">{users.length}名</span>
+              {alertCount > 0 && (
+                <>
+                  <span className="text-slate-600">·</span>
+                  <span className="flex items-center gap-1 text-xs font-medium text-red-400">
+                    <span className="w-1.5 h-1.5 bg-red-400 rounded-full animate-pulse" />
+                    {alertCount}件要対応
+                  </span>
+                </>
+              )}
+              {alertCount === 0 && users.length > 0 && (
+                <>
+                  <span className="text-slate-600">·</span>
+                  <span className="text-xs text-emerald-400 font-medium">全員OK</span>
+                </>
+              )}
+            </div>
             {tenantId && <NotificationBell tenantId={tenantId} />}
             <Link
               href="/settings"
@@ -291,7 +300,7 @@ export default function DashboardOverview() {
               className="w-full bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm"
             />
           </div>
-          <div className="flex gap-1.5">
+          <div className="flex flex-wrap gap-1.5">
             {(["all", "no_goal", "unreported", "ok"] as const).map((f) => {
               const labels = { all: "すべて", no_goal: "未設定", unreported: "未報告", ok: "正常" };
               const activeColors = {
@@ -304,7 +313,7 @@ export default function DashboardOverview() {
                 <button
                   key={f}
                   onClick={() => setStatusFilter(f)}
-                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all border ${
+                  className={`px-3 py-2 rounded-md text-xs font-medium transition-all border ${
                     statusFilter === f
                       ? activeColors[f]
                       : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
