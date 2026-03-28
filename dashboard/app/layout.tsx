@@ -15,13 +15,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Omakase - クライアント管理",
+  title: "たべコーチ - クライアント管理",
   description: "トレーナー向け栄養管理ダッシュボード",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Omakase",
+    title: "たべコーチ",
   },
 };
 

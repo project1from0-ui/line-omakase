@@ -18,8 +18,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const googleProvider = new GoogleAuthProvider();
 
-const TENANT_CACHE_KEY = "omakase_tenantId";
-const UID_CACHE_KEY = "omakase_uid";
+const TENANT_CACHE_KEY = "tabecoach_tenantId";
+const UID_CACHE_KEY = "tabecoach_uid";
 
 async function fetchTenantId(uid: string): Promise<string | null> {
   try {

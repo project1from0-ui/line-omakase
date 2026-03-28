@@ -208,10 +208,10 @@ export default function DashboardOverview() {
         <div className="max-w-2xl mx-auto px-4 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
-              <span className="text-white text-xs font-bold">O</span>
+              <span className="text-white text-xs font-bold">た</span>
             </div>
             <div>
-              <h1 className="text-sm font-bold text-white leading-none">Omakase</h1>
+              <h1 className="text-sm font-bold text-white leading-none">たべコーチ</h1>
               <p className="text-[10px] text-slate-400 mt-0.5">クライアント管理</p>
             </div>
           </div>

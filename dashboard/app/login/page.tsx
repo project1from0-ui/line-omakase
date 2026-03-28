@@ -54,9 +54,9 @@ export default function LoginPage() {
           {/* Logo */}
           <div className="flex flex-col items-center mb-8">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 mb-4">
-              <span className="text-white text-2xl font-bold tracking-tight">O</span>
+              <span className="text-white text-2xl font-bold tracking-tight">た</span>
             </div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Omakase</h1>
+            <h1 className="text-xl font-bold text-white tracking-tight">たべコーチ</h1>
             <p className="text-sm text-slate-400 mt-1">トレーナー向け栄養管理ダッシュボード</p>
           </div>
 

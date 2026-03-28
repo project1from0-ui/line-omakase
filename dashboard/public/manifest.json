@@ -1,6 +1,6 @@
 {
-  "name": "Omakase",
-  "short_name": "Omakase",
+  "name": "たべコーチ",
+  "short_name": "たべコーチ",
   "description": "トレーナー向け栄養管理ダッシュボード",
   "start_url": "/",
   "display": "standalone",
