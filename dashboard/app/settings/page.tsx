@@ -19,10 +19,18 @@ export default function SettingsPage() {
 
   const [systemPrompt, setSystemPrompt] = useState("");
   const [originalPrompt, setOriginalPrompt] = useState("");
+  const [reminderMessage, setReminderMessage] = useState("");
+  const [originalReminder, setOriginalReminder] = useState("");
   const [basicId, setBasicId] = useState<string | null>(null);
+  const [summaryTime, setSummaryTime] = useState("00:00");
+  const [originalSummaryTime, setOriginalSummaryTime] = useState("00:00");
   const [saving, setSaving] = useState(false);
+  const [savingReminder, setSavingReminder] = useState(false);
+  const [savingSummaryTime, setSavingSummaryTime] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [checkInEnabled, setCheckInEnabled] = useState(false);
+  const [savingCheckIn, setSavingCheckIn] = useState(false);
 
   const webhookUrl = `https://asia-northeast1-line-omakase.cloudfunctions.net/lineWebhook`;
 
@@ -36,7 +44,14 @@ export default function SettingsPage() {
         const prompt = data.systemPrompt || "";
         setSystemPrompt(prompt);
         setOriginalPrompt(prompt);
+        const reminder = data.reminderMessage || "";
+        setReminderMessage(reminder);
+        setOriginalReminder(reminder);
         setBasicId(data.basicId || null);
+        const st = data.summaryTime || "00:00";
+        setSummaryTime(st);
+        setOriginalSummaryTime(st);
+        setCheckInEnabled(data.proactiveCheckInEnabled ?? false);
       }
       setLoading(false);
     };
@@ -72,7 +87,54 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSaveReminder = async () => {
+    if (!tenantId) return;
+    setSavingReminder(true);
+    try {
+      await updateDoc(doc(db, "tenants", tenantId), { reminderMessage });
+      setOriginalReminder(reminderMessage);
+      showToast("リマインドメッセージを保存しました");
+    } catch (error) {
+      console.error("保存エラー:", error);
+      showToast("保存に失敗しました", "error");
+    } finally {
+      setSavingReminder(false);
+    }
+  };
+
+  const handleSaveSummaryTime = async () => {
+    if (!tenantId) return;
+    setSavingSummaryTime(true);
+    try {
+      await updateDoc(doc(db, "tenants", tenantId), { summaryTime });
+      setOriginalSummaryTime(summaryTime);
+      showToast("日次レポート送信時刻を保存しました");
+    } catch (error) {
+      console.error("保存エラー:", error);
+      showToast("保存に失敗しました", "error");
+    } finally {
+      setSavingSummaryTime(false);
+    }
+  };
+
+  const handleToggleCheckIn = async (enabled: boolean) => {
+    if (!tenantId) return;
+    setSavingCheckIn(true);
+    try {
+      await updateDoc(doc(db, "tenants", tenantId), { proactiveCheckInEnabled: enabled });
+      setCheckInEnabled(enabled);
+      showToast(enabled ? "昼食チェックインを有効にしました" : "昼食チェックインを無効にしました");
+    } catch (error) {
+      console.error("保存エラー:", error);
+      showToast("保存に失敗しました", "error");
+    } finally {
+      setSavingCheckIn(false);
+    }
+  };
+
   const hasChanges = systemPrompt !== originalPrompt;
+  const hasReminderChanges = reminderMessage !== originalReminder;
+  const hasSummaryTimeChanges = summaryTime !== originalSummaryTime;
 
   if (!ready || loading) {
     return (
@@ -100,9 +162,18 @@ export default function SettingsPage() {
         <div className="bg-white rounded-xl border border-slate-100 p-4">
           <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">アカウント</h2>
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-700">{user?.email}</p>
-              <p className="text-[11px] text-slate-400 mt-0.5">Bot ID: {tenantId}</p>
+            <div className="flex items-center gap-3">
+              {user?.photoURL && (
+                <img
+                  src={user.photoURL}
+                  alt={user.displayName ?? ""}
+                  className="w-9 h-9 rounded-full flex-shrink-0"
+                />
+              )}
+              <div>
+                <p className="text-sm text-slate-700">{user?.displayName ?? "トレーナー"}</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Bot ID: {tenantId}</p>
+              </div>
             </div>
             <button
               onClick={signOut}
@@ -168,16 +239,94 @@ export default function SettingsPage() {
           </button>
         </div>
 
+        {/* Reminder notification */}
+        <div className="bg-white rounded-xl border border-slate-100 p-4">
+          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">リマインド通知</h2>
+          <p className="text-[11px] text-slate-400 mb-2">
+            毎日21:00に12時間以上未報告のクライアントへ自動送信されます。空欄の場合はデフォルトメッセージが使われます。
+          </p>
+          <input
+            type="text"
+            value={reminderMessage}
+            onChange={(e) => setReminderMessage(e.target.value)}
+            placeholder="今日の食事はまだ報告されていません🍽 写真やテキストで教えてくださいね！"
+            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <div className="flex items-center justify-end gap-3 mt-3">
+            <button
+              onClick={handleSaveReminder}
+              disabled={savingReminder || !hasReminderChanges}
+              className="px-4 py-2.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 transition-colors"
+            >
+              {savingReminder ? "保存中..." : "保存"}
+            </button>
+          </div>
+        </div>
+
+        {/* Daily report time */}
+        <div className="bg-white rounded-xl border border-slate-100 p-4">
+          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">日次レポート</h2>
+          <p className="text-[11px] text-slate-400 mb-2">
+            毎日指定時刻に、食事報告済みのクライアントへAI総評を自動送信します。
+          </p>
+          <div className="flex items-center gap-3">
+            <select
+              value={summaryTime}
+              onChange={(e) => setSummaryTime(e.target.value)}
+              className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {Array.from({length: 24}, (_, i) => {
+                const hour = String(i).padStart(2, "0") + ":00";
+                return <option key={hour} value={hour}>{hour}</option>;
+              })}
+            </select>
+            <span className="text-xs text-slate-400">JST</span>
+          </div>
+          <div className="flex items-center justify-end gap-3 mt-3">
+            <button
+              onClick={handleSaveSummaryTime}
+              disabled={savingSummaryTime || !hasSummaryTimeChanges}
+              className="px-4 py-2.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 transition-colors"
+            >
+              {savingSummaryTime ? "保存中..." : "保存"}
+            </button>
+          </div>
+        </div>
+
+        {/* Proactive Check-in */}
+        <div className="bg-white rounded-xl border border-slate-100 p-4">
+          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">昼食チェックイン</h2>
+          <p className="text-[11px] text-slate-400 mb-3">
+            毎日14:00に未報告のクライアントへ昼食確認メッセージを自動送信します。目標カロリーの残量も通知されます。
+          </p>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-slate-700">{checkInEnabled ? "有効" : "無効"}</span>
+            <button
+              onClick={() => handleToggleCheckIn(!checkInEnabled)}
+              disabled={savingCheckIn}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                checkInEnabled ? "bg-blue-600" : "bg-slate-200"
+              } ${savingCheckIn ? "opacity-50" : ""}`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
+                  checkInEnabled ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
         {/* System Prompt */}
         <div className="bg-white rounded-xl border border-slate-100 p-4">
-          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">AI システムプロンプト</h2>
+          <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">AI システムプロンプト（追加指示）</h2>
           <p className="text-[11px] text-slate-400 mb-2">
-            AI アシスタントの振る舞いをカスタマイズできます。ユーザーへの返答トーンや指導方針を指定してください。
+            プラットフォーム基本プロンプトに追加されます。トレーナー独自の指導方針やトーンをカスタマイズできます。
           </p>
           <textarea
             value={systemPrompt}
             onChange={(e) => setSystemPrompt(e.target.value)}
-            placeholder="例: あなたは経験豊富な栄養士です。ユーザーに対して優しく励ましながら、具体的な栄養指導を行ってください。"
+            placeholder="例: 筋トレ中のクライアントが多いので、タンパク質摂取を特に重視して指導してください。糖質制限は推奨しない方針です。"
             rows={6}
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
           />

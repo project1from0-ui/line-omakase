@@ -28,6 +28,12 @@ service cloud.firestore {
           allow read: if request.auth != null
             && get(/databases/$(database)/documents/tenants/$(tenantId)).data.ownerId == request.auth.uid;
         }
+
+        // Daily summaries subcollection
+        match /dailySummaries/{summaryId} {
+          allow read: if request.auth != null
+            && get(/databases/$(database)/documents/tenants/$(tenantId)).data.ownerId == request.auth.uid;
+        }
       }
 
       // Notifications subcollection

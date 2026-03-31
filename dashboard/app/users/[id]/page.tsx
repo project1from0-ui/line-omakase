@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState, useMemo, use } from "react";
-import { collection, query, orderBy, onSnapshot, doc } from "firebase/firestore";
+import { collection, query, orderBy, limit, onSnapshot, doc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { db, functions } from "../../../src/lib/firebase";
 import { AppUser, AppMessage, NutritionData } from "../../../src/types";
@@ -76,7 +76,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
   useEffect(() => {
     if (!ready || !tenantId) return;
     const msgsRef = collection(db, `tenants/${tenantId}/users/${userId}/messages`);
-    const q = query(msgsRef, orderBy("createdAt", "desc"));
+    const q = query(msgsRef, orderBy("createdAt", "desc"), limit(300));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const msgs = snapshot.docs.map((doc) => {
         const data = doc.data();
@@ -358,52 +358,105 @@ function WeeklyTrend({ dailyNutrition, goal }: { dailyNutrition: DailyNutrition[
     ? goal.targetCalories * 1.2
     : Math.max(...dailyNutrition.map((d) => d.totalCalories), 1);
 
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 mb-3">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xs font-semibold text-slate-600">過去7日間</h3>
-        {goal && (
-          <span className="text-[10px] text-slate-400 flex items-center gap-1">
-            <span className="inline-block w-3 h-px border-t-2 border-dashed border-slate-300" />
-            目標 {goal.targetCalories} kcal
-          </span>
-        )}
-      </div>
-      <div className="flex items-end gap-1.5" style={{ height: "80px" }}>
-        {days.map((day) => {
-          const data = dailyNutrition.find((d) => isSameDay(d.date, day));
-          const cal = data?.totalCalories || 0;
-          const heightPct = maxCal > 0 ? Math.min((cal / maxCal) * 100, 100) : 0;
-          const isOver = goal && cal > goal.targetCalories;
-          const isToday = isSameDay(day, today);
+  // Calculate 7-day averages
+  const weekData = days.map((day) => dailyNutrition.find((d) => isSameDay(d.date, day))).filter(Boolean) as DailyNutrition[];
+  const hasWeekData = weekData.length > 0;
+  const avgCal = hasWeekData ? Math.round(weekData.reduce((s, d) => s + d.totalCalories, 0) / weekData.length) : 0;
+  const avgP = hasWeekData ? Math.round(weekData.reduce((s, d) => s + d.totalProtein, 0) / weekData.length) : 0;
+  const avgF = hasWeekData ? Math.round(weekData.reduce((s, d) => s + d.totalFat, 0) / weekData.length) : 0;
+  const avgC = hasWeekData ? Math.round(weekData.reduce((s, d) => s + d.totalCarbs, 0) / weekData.length) : 0;
 
-          return (
-            <div key={day.toISOString()} className="flex-1 flex flex-col items-center gap-1.5">
-              <span className="text-[9px] text-slate-400 tabular-nums h-3 flex items-end">
-                {cal > 0 ? (cal >= 1000 ? `${(cal / 1000).toFixed(1)}k` : Math.round(cal)) : ""}
-              </span>
-              <div className="w-full flex items-end rounded-sm overflow-hidden" style={{ height: "48px" }}>
-                <div
-                  className={`w-full rounded-md transition-all duration-300 ${
-                    isOver
-                      ? "bg-gradient-to-t from-red-500 to-red-400"
-                      : cal > 0
-                      ? isToday
-                        ? "bg-gradient-to-t from-blue-600 to-blue-400"
-                        : "bg-gradient-to-t from-blue-400 to-blue-300"
-                      : "bg-slate-100"
-                  }`}
-                  style={{ height: `${Math.max(heightPct, cal > 0 ? 6 : 3)}%` }}
-                />
+  return (
+    <>
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 mb-3">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xs font-semibold text-slate-600">過去7日間</h3>
+          <div className="flex items-center gap-3">
+            {goal && (
+              <>
+                <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-red-400" /> カロリー超過
+                </span>
+                <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-amber-400" /> P不足
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="flex items-end gap-1.5" style={{ height: "80px" }}>
+          {days.map((day) => {
+            const data = dailyNutrition.find((d) => isSameDay(d.date, day));
+            const cal = data?.totalCalories || 0;
+            const heightPct = maxCal > 0 ? Math.min((cal / maxCal) * 100, 100) : 0;
+            const isCalOver = goal && cal > goal.targetCalories * 1.15;
+            const isProteinLow = goal && data && data.totalProtein < goal.protein * 0.7;
+            const isToday = isSameDay(day, today);
+
+            return (
+              <div key={day.toISOString()} className="flex-1 flex flex-col items-center gap-1">
+                <span className="text-[9px] text-slate-400 tabular-nums h-3 flex items-end">
+                  {cal > 0 ? (cal >= 1000 ? `${(cal / 1000).toFixed(1)}k` : Math.round(cal)) : ""}
+                </span>
+                <div className="w-full flex items-end rounded-sm overflow-hidden" style={{ height: "48px" }}>
+                  <div
+                    className={`w-full rounded-md transition-all duration-300 ${
+                      isCalOver
+                        ? "bg-gradient-to-t from-red-500 to-red-400"
+                        : cal > 0
+                        ? isToday
+                          ? "bg-gradient-to-t from-blue-600 to-blue-400"
+                          : "bg-gradient-to-t from-blue-400 to-blue-300"
+                        : "bg-slate-100"
+                    }`}
+                    style={{ height: `${Math.max(heightPct, cal > 0 ? 6 : 3)}%` }}
+                  />
+                </div>
+                {/* Indicators row */}
+                <div className="flex items-center gap-0.5 h-2">
+                  {isCalOver && <span className="w-1.5 h-1.5 rounded-full bg-red-400" />}
+                  {isProteinLow && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />}
+                </div>
+                <span className={`text-[10px] leading-none ${isToday ? "font-bold text-slate-800" : "text-slate-400"}`}>
+                  {format(day, "E", { locale: ja })}
+                </span>
               </div>
-              <span className={`text-[10px] leading-none ${isToday ? "font-bold text-slate-800" : "text-slate-400"}`}>
-                {format(day, "E", { locale: ja })}
-              </span>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
-    </div>
+
+      {/* 7-day average summary card */}
+      {hasWeekData && goal && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 mb-3">
+          <h3 className="text-xs font-semibold text-slate-600 mb-3">7日間平均 vs 目標</h3>
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { label: "kcal", avg: avgCal, target: goal.targetCalories, color: "text-slate-700" },
+              { label: "P", avg: avgP, target: goal.protein, color: "text-blue-600" },
+              { label: "F", avg: avgF, target: goal.fat, color: "text-amber-600" },
+              { label: "C", avg: avgC, target: goal.carbs, color: "text-emerald-600" },
+            ].map((item) => {
+              const pct = item.target > 0 ? Math.round((item.avg / item.target) * 100) : 0;
+              const isOver = pct > 115;
+              const isLow = pct < 70;
+              return (
+                <div key={item.label} className="text-center">
+                  <p className={`text-[10px] font-medium ${item.color}`}>{item.label}</p>
+                  <p className={`text-sm font-bold tabular-nums ${isOver ? "text-red-600" : isLow ? "text-amber-600" : "text-slate-700"}`}>
+                    {item.avg}
+                  </p>
+                  <p className="text-[10px] text-slate-400">/ {item.target}</p>
+                  <p className={`text-[10px] font-semibold tabular-nums mt-0.5 ${isOver ? "text-red-500" : isLow ? "text-amber-500" : "text-emerald-500"}`}>
+                    {pct}%
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

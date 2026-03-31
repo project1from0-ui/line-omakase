@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc, where } from "firebase/firestore";
+import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
+import { useRouter } from "next/navigation";
 
 interface Notification {
   id: string;
@@ -12,12 +13,14 @@ interface Notification {
   message: string;
   createdAt: Date;
   read: boolean;
+  userId?: string;
 }
 
 export function NotificationBell({ tenantId }: { tenantId: string }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const notifsRef = collection(db, `tenants/${tenantId}/notifications`);
@@ -31,6 +34,7 @@ export function NotificationBell({ tenantId }: { tenantId: string }) {
           message: data.message,
           createdAt: data.createdAt?.toDate() || new Date(),
           read: data.read || false,
+          userId: data.userId || undefined,
         } as Notification;
       });
       setNotifications(items);
@@ -97,20 +101,38 @@ export function NotificationBell({ tenantId }: { tenantId: string }) {
                 <p className="text-xs text-slate-400">通知はありません</p>
               </div>
             ) : (
-              notifications.map((n) => (
-                <div
-                  key={n.id}
-                  onClick={() => !n.read && markAsRead(n.id)}
-                  className={`px-4 py-3 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors ${
-                    !n.read ? "bg-blue-50/50" : ""
-                  }`}
-                >
-                  <p className="text-xs text-slate-700 leading-relaxed">{n.message}</p>
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    {formatDistanceToNow(n.createdAt, { addSuffix: true, locale: ja })}
-                  </p>
-                </div>
-              ))
+              notifications.map((n) => {
+                const isPatternAlert = n.type === "pattern_alert";
+                return (
+                  <div
+                    key={n.id}
+                    onClick={() => {
+                      if (!n.read) markAsRead(n.id);
+                      if (isPatternAlert && n.userId) {
+                        router.push(`/users/${n.userId}`);
+                        setOpen(false);
+                      }
+                    }}
+                    className={`px-4 py-3 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors ${
+                      !n.read
+                        ? isPatternAlert ? "bg-orange-50/50 border-l-2 border-l-orange-400" : "bg-blue-50/50"
+                        : ""
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      {isPatternAlert && (
+                        <span className="flex-shrink-0 mt-0.5 w-2 h-2 rounded-full bg-orange-400" />
+                      )}
+                      <div className="flex-1">
+                        <p className="text-xs text-slate-700 leading-relaxed">{n.message}</p>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          {formatDistanceToNow(n.createdAt, { addSuffix: true, locale: ja })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

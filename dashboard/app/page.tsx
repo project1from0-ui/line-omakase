@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState, useMemo } from "react";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, where } from "firebase/firestore";
 import { db } from "../src/lib/firebase";
 import { AppUser } from "../src/types";
 import { differenceInHours, differenceInMinutes, formatDistanceToNow } from "date-fns";
@@ -100,7 +100,8 @@ export default function DashboardOverview() {
   const [loading, setLoading] = useState(true);
   const { tenantId, ready } = useRequireAuth();
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "no_goal" | "unreported" | "ok">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "no_goal" | "unreported" | "ok" | "alert">("all");
+  const [alertUserIds, setAlertUserIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!ready || !tenantId) return;
@@ -124,6 +125,22 @@ export default function DashboardOverview() {
       setLoading(false);
     });
 
+    return () => unsubscribe();
+  }, [ready, tenantId]);
+
+  // Listen for pattern_alert notifications to identify alerted users
+  useEffect(() => {
+    if (!ready || !tenantId) return;
+    const notifsRef = collection(db, `tenants/${tenantId}/notifications`);
+    const q2 = query(notifsRef, where("type", "==", "pattern_alert"), where("read", "==", false));
+    const unsubscribe = onSnapshot(q2, (snapshot) => {
+      const ids = new Set<string>();
+      snapshot.docs.forEach((doc) => {
+        const uid = doc.data().userId;
+        if (uid) ids.add(uid);
+      });
+      setAlertUserIds(ids);
+    });
     return () => unsubscribe();
   }, [ready, tenantId]);
 
@@ -155,10 +172,13 @@ export default function DashboardOverview() {
   const filteredUsers = useMemo(() => {
     return sortedUsers.filter((user) => {
       if (searchQuery && !user.displayName.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      if (statusFilter === "alert") {
+        return alertUserIds.has(user.lineUserId);
+      }
       if (statusFilter !== "all" && getUserStatus(user) !== statusFilter) return false;
       return true;
     });
-  }, [sortedUsers, searchQuery, statusFilter]);
+  }, [sortedUsers, searchQuery, statusFilter, alertUserIds]);
 
   const alertCount = useMemo(() => users.filter((u) => hasNoGoal(u) || isUnreported(u)).length, [users]);
   const okCount = useMemo(() => users.filter((u) => !hasNoGoal(u) && !isUnreported(u)).length, [users]);
@@ -301,12 +321,13 @@ export default function DashboardOverview() {
             />
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {(["all", "no_goal", "unreported", "ok"] as const).map((f) => {
-              const labels = { all: "すべて", no_goal: "未設定", unreported: "未報告", ok: "正常" };
-              const activeColors = {
+            {(["all", "no_goal", "unreported", "alert", "ok"] as const).map((f) => {
+              const labels: Record<string, string> = { all: "すべて", no_goal: "未設定", unreported: "未報告", alert: `アラート${alertUserIds.size > 0 ? ` (${alertUserIds.size})` : ""}`, ok: "正常" };
+              const activeColors: Record<string, string> = {
                 all: "bg-slate-800 text-white border-slate-800",
                 no_goal: "bg-amber-500 text-white border-amber-500",
                 unreported: "bg-red-500 text-white border-red-500",
+                alert: "bg-orange-500 text-white border-orange-500",
                 ok: "bg-emerald-500 text-white border-emerald-500",
               };
               return (

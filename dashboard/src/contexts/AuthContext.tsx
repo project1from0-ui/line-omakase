@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
-import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut } from "firebase/auth";
+import { User, onAuthStateChanged, signInWithCustomToken, updateProfile, signOut as firebaseSignOut } from "firebase/auth";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 
@@ -9,17 +9,17 @@ interface AuthContextType {
   user: User | null;
   tenantId: string | null;
   loading: boolean;
-  signIn: () => Promise<void>;
+  signIn: (accessToken: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshTenant: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const googleProvider = new GoogleAuthProvider();
-
 const TENANT_CACHE_KEY = "tabecoach_tenantId";
 const UID_CACHE_KEY = "tabecoach_uid";
+
+const LINE_LOGIN_AUTH_URL = "https://asia-northeast1-line-omakase.cloudfunctions.net/lineLoginAuth";
 
 async function fetchTenantId(uid: string): Promise<string | null> {
   try {
@@ -70,12 +70,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       if (firebaseUser) {
-        // Use cache for instant render, then verify in background
         const cached = getCachedTenantId(firebaseUser.uid);
         if (cached) {
           setTenantId(cached);
           setLoading(false);
-          // Verify cache in background
           fetchTenantId(firebaseUser.uid).then((tid) => {
             if (tid !== cached) setTenantId(tid);
           });
@@ -92,8 +90,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const signIn = async () => {
-    await signInWithPopup(auth, googleProvider);
+  // LINEアクセストークンを受け取り、Firebase Custom Tokenでサインイン
+  const signIn = async (accessToken: string) => {
+    // Cloud FunctionでLINEトークン検証 → Custom Token取得
+    const res = await fetch(LINE_LOGIN_AUTH_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accessToken }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "ログインに失敗しました");
+    }
+
+    const { customToken, displayName, pictureUrl } = await res.json();
+
+    // Firebase Custom Tokenでサインイン
+    const credential = await signInWithCustomToken(auth, customToken);
+
+    // Firebase AuthのプロフィールにLINE情報を反映
+    await updateProfile(credential.user, {
+      displayName: displayName ?? null,
+      photoURL: pictureUrl ?? null,
+    });
   };
 
   const signOut = async () => {

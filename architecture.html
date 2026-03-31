@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>たべコーチ - アーキテクチャ概要</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif; background: #f8fafc; color: #1e293b; line-height: 1.7; }
+  .container { max-width: 960px; margin: 0 auto; padding: 32px 20px; }
+  h1 { font-size: 28px; font-weight: 800; margin-bottom: 8px; }
+  h1 span { color: #3b82f6; }
+  .subtitle { color: #64748b; font-size: 14px; margin-bottom: 40px; }
+  h2 { font-size: 20px; font-weight: 700; margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; }
+  h3 { font-size: 16px; font-weight: 700; margin: 24px 0 8px; color: #334155; }
+  p { font-size: 14px; color: #475569; margin-bottom: 12px; }
+
+  /* Feature cards */
+  .features { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin: 20px 0; }
+  .feature-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; }
+  .feature-card .icon { font-size: 24px; margin-bottom: 8px; }
+  .feature-card h4 { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .feature-card p { font-size: 13px; color: #64748b; margin: 0; }
+
+  /* Architecture diagram */
+  .diagram { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 32px; margin: 24px 0; overflow-x: auto; }
+  .diagram svg { display: block; margin: 0 auto; }
+
+  /* Actor columns */
+  .actor-section { display: flex; gap: 12px; margin: 20px 0; flex-wrap: wrap; }
+  .actor { flex: 1; min-width: 200px; background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; }
+  .actor-header { padding: 10px 16px; font-size: 13px; font-weight: 700; color: #fff; }
+  .actor-body { padding: 12px 16px; font-size: 13px; color: #475569; }
+  .actor-body li { margin-bottom: 4px; list-style: none; }
+  .actor-body li::before { content: "- "; color: #94a3b8; }
+
+  /* Flow */
+  .flow { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin: 16px 0; }
+  .flow-title { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+  .flow-steps { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .flow-step { background: #f1f5f9; border-radius: 8px; padding: 6px 12px; font-size: 12px; color: #334155; white-space: nowrap; }
+  .flow-arrow { color: #94a3b8; font-size: 16px; }
+
+  /* Tech table */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  th { background: #f1f5f9; padding: 8px 12px; text-align: left; font-weight: 700; border-bottom: 2px solid #e2e8f0; }
+  td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; color: #475569; }
+  tr:hover td { background: #f8fafc; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .badge-blue { background: #dbeafe; color: #1d4ed8; }
+  .badge-green { background: #dcfce7; color: #15803d; }
+  .badge-amber { background: #fef3c7; color: #b45309; }
+  .badge-purple { background: #f3e8ff; color: #7e22ce; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1><span>たべコーチ</span> - システム概要</h1>
+<p class="subtitle">LINE連携AI栄養指導プラットフォーム</p>
+
+<!-- ===== 概要 ===== -->
+<h2>アプリ概要</h2>
+<p>
+たべコーチは、パーソナルトレーナーがLINEを通じてクライアントの食事管理を行うためのプラットフォームです。
+クライアントは普段使っているLINEで食事写真やテキストを送るだけで、AIが自動的に栄養素を解析し、パーソナライズされた指導を返します。
+トレーナーはWebダッシュボードから全クライアントの栄養状況をリアルタイムで確認・介入できます。
+</p>
+
+<!-- ===== 主要機能 ===== -->
+<h2>主要機能</h2>
+<div class="features">
+  <div class="feature-card">
+    <div class="icon">📸</div>
+    <h4>AI食事画像認識</h4>
+    <p>写真を送るだけでGemini AIが食品を自動認識し、カロリー・PFC（タンパク質/脂質/炭水化物）を推定</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">🤖</div>
+    <h4>パーソナライズ指導</h4>
+    <p>体重・目的・アレルギー・既往歴などの個人情報を考慮した、一人ひとりに合わせたAI栄養指導</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">📊</div>
+    <h4>AI日次レポート</h4>
+    <p>1日の食事を総括したAI総評を指定時刻に自動送信。テンプレートではなくAIが毎日生成</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">📖</div>
+    <h4>LIFF食事日記</h4>
+    <p>LINE内ブラウザで過去の食事記録・栄養達成率・AI総評を日別カード形式で閲覧</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">🔔</div>
+    <h4>未報告リマインダー</h4>
+    <p>12時間以上食事報告がないクライアントへ自動リマインド。メッセージはカスタマイズ可能</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">💬</div>
+    <h4>トレーナー直接介入</h4>
+    <p>ダッシュボードからクライアントへ直接メッセージ送信。チャット履歴も一元管理</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">🎯</div>
+    <h4>栄養目標自動計算</h4>
+    <p>身長・体重・活動レベル・目的から最適なカロリー・PFC目標を自動算出</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">📱</div>
+    <h4>PWAダッシュボード</h4>
+    <p>トレーナー向けWebアプリ。クライアント一覧、栄養推移グラフ、設定をスマホからも操作</p>
+  </div>
+</div>
+
+<!-- ===== 登場人物 ===== -->
+<h2>利用者</h2>
+<div class="actor-section">
+  <div class="actor">
+    <div class="actor-header" style="background:#1d4ed8;">トレーナー（管理者）</div>
+    <div class="actor-body">
+      <ul>
+        <li>Webダッシュボードでクライアント管理</li>
+        <li>栄養目標・個人情報の設定</li>
+        <li>AIシステムプロンプトのカスタマイズ</li>
+        <li>リマインド・レポート時刻の設定</li>
+        <li>チャット履歴の閲覧・直接メッセージ</li>
+      </ul>
+    </div>
+  </div>
+  <div class="actor">
+    <div class="actor-header" style="background:#15803d;">クライアント（顧客）</div>
+    <div class="actor-body">
+      <ul>
+        <li>LINEで食事写真・テキストを送信</li>
+        <li>AIからリアルタイムで栄養指導を受信</li>
+        <li>日次レポートで1日の振り返り</li>
+        <li>LIFF食事日記で過去記録を閲覧</li>
+        <li>追加アプリのインストール不要</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ===== アーキテクチャ図 ===== -->
+<h2>システム全体構成図</h2>
+<div class="diagram">
+<svg viewBox="0 0 900 620" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, sans-serif">
+  <!-- Background zones -->
+  <rect x="10" y="10" width="880" height="600" rx="16" fill="#f8fafc" stroke="#e2e8f0"/>
+
+  <!-- Zone: Client side -->
+  <rect x="30" y="30" width="250" height="560" rx="12" fill="#ecfdf5" stroke="#86efac" stroke-dasharray="6,3"/>
+  <text x="155" y="56" text-anchor="middle" font-size="13" font-weight="700" fill="#15803d">クライアント側</text>
+
+  <!-- Zone: Cloud -->
+  <rect x="310" y="30" width="300" height="560" rx="12" fill="#eff6ff" stroke="#93c5fd" stroke-dasharray="6,3"/>
+  <text x="460" y="56" text-anchor="middle" font-size="13" font-weight="700" fill="#1d4ed8">Firebase / GCP</text>
+
+  <!-- Zone: Trainer side -->
+  <rect x="640" y="30" width="240" height="560" rx="12" fill="#fef3c7" stroke="#fcd34d" stroke-dasharray="6,3"/>
+  <text x="760" y="56" text-anchor="middle" font-size="13" font-weight="700" fill="#b45309">トレーナー側</text>
+
+  <!-- ===== Client boxes ===== -->
+  <!-- LINE App -->
+  <rect x="60" y="80" width="190" height="70" rx="10" fill="#fff" stroke="#22c55e" stroke-width="2"/>
+  <text x="155" y="108" text-anchor="middle" font-size="22">💬</text>
+  <text x="155" y="132" text-anchor="middle" font-size="12" font-weight="700" fill="#334155">LINE アプリ</text>
+
+  <!-- LIFF Diary -->
+  <rect x="60" y="180" width="190" height="70" rx="10" fill="#fff" stroke="#22c55e" stroke-width="2"/>
+  <text x="155" y="208" text-anchor="middle" font-size="22">📖</text>
+  <text x="155" y="232" text-anchor="middle" font-size="12" font-weight="700" fill="#334155">LIFF 食事日記</text>
+
+  <!-- User actions list -->
+  <rect x="50" y="280" width="210" height="140" rx="10" fill="#fff" stroke="#d1d5db"/>
+  <text x="155" y="304" text-anchor="middle" font-size="11" font-weight="700" fill="#64748b">クライアントの操作</text>
+  <text x="65" y="325" font-size="11" fill="#475569">1. 食事写真/テキスト送信</text>
+  <text x="65" y="345" font-size="11" fill="#475569">2. AI栄養指導を受信</text>
+  <text x="65" y="365" font-size="11" fill="#475569">3. 日次レポート受信</text>
+  <text x="65" y="385" font-size="11" fill="#475569">4. リマインド通知受信</text>
+  <text x="65" y="405" font-size="11" fill="#475569">5. 食事日記を閲覧</text>
+
+  <!-- ===== Cloud boxes ===== -->
+  <!-- LINE Messaging API -->
+  <rect x="330" y="80" width="260" height="50" rx="10" fill="#fff" stroke="#3b82f6" stroke-width="2"/>
+  <text x="460" y="110" text-anchor="middle" font-size="12" font-weight="700" fill="#1d4ed8">LINE Messaging API</text>
+
+  <!-- Cloud Functions -->
+  <rect x="330" y="155" width="260" height="165" rx="10" fill="#fff" stroke="#3b82f6" stroke-width="2"/>
+  <text x="460" y="178" text-anchor="middle" font-size="12" font-weight="700" fill="#1d4ed8">Cloud Functions</text>
+  <rect x="345" y="190" width="230" height="24" rx="6" fill="#dbeafe"/>
+  <text x="460" y="207" text-anchor="middle" font-size="10" fill="#1e40af">lineWebhook (POST)</text>
+  <rect x="345" y="220" width="230" height="24" rx="6" fill="#dbeafe"/>
+  <text x="460" y="237" text-anchor="middle" font-size="10" fill="#1e40af">sendDailySummary (毎時 cron)</text>
+  <rect x="345" y="250" width="110" height="24" rx="6" fill="#dbeafe"/>
+  <text x="400" y="267" text-anchor="middle" font-size="10" fill="#1e40af">checkUnreported</text>
+  <rect x="465" y="250" width="110" height="24" rx="6" fill="#dbeafe"/>
+  <text x="520" y="267" text-anchor="middle" font-size="10" fill="#1e40af">sendPush</text>
+  <rect x="345" y="280" width="230" height="24" rx="6" fill="#dbeafe"/>
+  <text x="460" y="297" text-anchor="middle" font-size="10" fill="#1e40af">getDailySummaries (GET)</text>
+
+  <!-- Gemini -->
+  <rect x="330" y="345" width="260" height="55" rx="10" fill="#fff" stroke="#8b5cf6" stroke-width="2"/>
+  <text x="460" y="370" text-anchor="middle" font-size="18">🧠</text>
+  <text x="460" y="389" text-anchor="middle" font-size="12" font-weight="700" fill="#7c3aed">Gemini API (2.5 Flash Lite)</text>
+
+  <!-- Firestore -->
+  <rect x="330" y="425" width="260" height="150" rx="10" fill="#fff" stroke="#f59e0b" stroke-width="2"/>
+  <text x="460" y="448" text-anchor="middle" font-size="12" font-weight="700" fill="#b45309">Cloud Firestore</text>
+  <rect x="345" y="460" width="230" height="20" rx="4" fill="#fef3c7"/>
+  <text x="460" y="475" text-anchor="middle" font-size="10" fill="#92400e">tenants/{tenantId}</text>
+  <rect x="355" y="485" width="220" height="20" rx="4" fill="#fef3c7"/>
+  <text x="465" y="500" text-anchor="middle" font-size="10" fill="#92400e">users/{userId}</text>
+  <rect x="365" y="510" width="205" height="20" rx="4" fill="#fef3c7"/>
+  <text x="467" y="525" text-anchor="middle" font-size="10" fill="#92400e">messages/{msgId}</text>
+  <rect x="365" y="535" width="205" height="20" rx="4" fill="#fef3c7"/>
+  <text x="467" y="550" text-anchor="middle" font-size="10" fill="#92400e">dailySummaries/{date}</text>
+
+  <!-- ===== Trainer boxes ===== -->
+  <!-- Dashboard -->
+  <rect x="660" y="80" width="200" height="70" rx="10" fill="#fff" stroke="#f59e0b" stroke-width="2"/>
+  <text x="760" y="108" text-anchor="middle" font-size="22">📱</text>
+  <text x="760" y="132" text-anchor="middle" font-size="12" font-weight="700" fill="#334155">Web ダッシュボード</text>
+
+  <!-- Dashboard pages -->
+  <rect x="650" y="175" width="220" height="175" rx="10" fill="#fff" stroke="#d1d5db"/>
+  <text x="760" y="198" text-anchor="middle" font-size="11" font-weight="700" fill="#64748b">ダッシュボード機能</text>
+  <text x="665" y="220" font-size="11" fill="#475569">/  クライアント一覧</text>
+  <text x="665" y="240" font-size="11" fill="#475569">/users/[id]  詳細・チャット</text>
+  <text x="665" y="260" font-size="11" fill="#475569">/users/[id]/goal  目標設定</text>
+  <text x="665" y="280" font-size="11" fill="#475569">/settings  Bot設定</text>
+  <text x="665" y="300" font-size="11" fill="#475569">/setup  初期セットアップ</text>
+  <text x="665" y="320" font-size="11" fill="#475569">/login  Google認証</text>
+
+  <!-- Trainer actions -->
+  <rect x="650" y="375" width="220" height="120" rx="10" fill="#fff" stroke="#d1d5db"/>
+  <text x="760" y="398" text-anchor="middle" font-size="11" font-weight="700" fill="#64748b">トレーナーの操作</text>
+  <text x="665" y="420" font-size="11" fill="#475569">1. クライアント状況確認</text>
+  <text x="665" y="440" font-size="11" fill="#475569">2. 栄養目標・個人情報設定</text>
+  <text x="665" y="460" font-size="11" fill="#475569">3. 直接メッセージ送信</text>
+  <text x="665" y="480" font-size="11" fill="#475569">4. AI挙動・通知カスタマイズ</text>
+
+  <!-- ===== Arrows ===== -->
+  <!-- LINE App → LINE Messaging API -->
+  <line x1="250" y1="110" x2="330" y2="105" stroke="#22c55e" stroke-width="2" marker-end="url(#arrowGreen)"/>
+  <!-- LINE Messaging API → Cloud Functions -->
+  <line x1="460" y1="130" x2="460" y2="155" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <!-- Cloud Functions → Gemini -->
+  <line x1="460" y1="320" x2="460" y2="345" stroke="#8b5cf6" stroke-width="2" marker-end="url(#arrowPurple)"/>
+  <!-- Gemini → Cloud Functions (response) -->
+  <line x1="440" y1="345" x2="440" y2="320" stroke="#8b5cf6" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrowPurple)"/>
+  <!-- Cloud Functions → Firestore -->
+  <line x1="460" y1="320" x2="460" y2="425" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrowAmber)"/>
+  <!-- Cloud Functions → LINE Messaging API (reply) -->
+  <line x1="440" y1="155" x2="440" y2="130" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrowBlue)"/>
+  <!-- LINE Messaging API → LINE App (reply) -->
+  <line x1="330" y1="120" x2="250" y2="120" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrowGreen)"/>
+
+  <!-- LIFF → getDailySummaries -->
+  <line x1="250" y1="215" x2="330" y2="290" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+  <text x="270" y="245" font-size="9" fill="#64748b" transform="rotate(17 270 245)">REST API</text>
+
+  <!-- Dashboard → Firestore -->
+  <line x1="660" y1="260" x2="590" y2="475" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arrowAmber)"/>
+  <text x="640" y="370" font-size="9" fill="#64748b" transform="rotate(70 640 370)">SDK</text>
+
+  <!-- Dashboard → Cloud Functions (callable) -->
+  <line x1="660" y1="200" x2="590" y2="230" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+  <text x="618" y="207" font-size="9" fill="#64748b">callable</text>
+
+  <!-- Arrow markers -->
+  <defs>
+    <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#22c55e"/></marker>
+    <marker id="arrowBlue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#3b82f6"/></marker>
+    <marker id="arrowPurple" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#8b5cf6"/></marker>
+    <marker id="arrowAmber" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6Z" fill="#f59e0b"/></marker>
+  </defs>
+</svg>
+</div>
+
+<!-- ===== データフロー ===== -->
+<h2>主要データフロー</h2>
+
+<div class="flow">
+  <div class="flow-title">1. 食事報告 → AI指導（リアルタイム）</div>
+  <div class="flow-steps">
+    <span class="flow-step">クライアント: 食事写真送信</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">LINE Messaging API</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">lineWebhook</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">Gemini: 画像認識+栄養推定</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">Firestore: 保存+日次累計更新</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">LINE: AI指導を返信</span>
+  </div>
+</div>
+
+<div class="flow">
+  <div class="flow-title">2. 日次AIレポート（スケジュール実行）</div>
+  <div class="flow-steps">
+    <span class="flow-step">cron: 毎時0分</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">summaryTime一致のテナント抽出</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">当日の全食事取得</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">Gemini: AI総評生成</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">dailySummaries保存</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">LINE: レポート+日記リンク送信</span>
+  </div>
+</div>
+
+<div class="flow">
+  <div class="flow-title">3. 食事日記閲覧（LIFF）</div>
+  <div class="flow-steps">
+    <span class="flow-step">クライアント: レポート内リンクをタップ</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">LINEアプリ内ブラウザ (LIFF)</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">LIFFトークン取得</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">getDailySummaries API</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">日別カード表示</span>
+  </div>
+</div>
+
+<div class="flow">
+  <div class="flow-title">4. 未報告リマインド（スケジュール実行）</div>
+  <div class="flow-steps">
+    <span class="flow-step">cron: 毎日21:00 JST</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">12時間以上未報告ユーザー抽出</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">LINE: リマインドメッセージ送信</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">ダッシュボード通知作成</span>
+  </div>
+</div>
+
+<!-- ===== 技術スタック ===== -->
+<h2>技術スタック</h2>
+<table>
+  <tr><th>レイヤー</th><th>技術</th><th>用途</th></tr>
+  <tr>
+    <td>フロントエンド</td>
+    <td><span class="badge badge-blue">Next.js 16</span> <span class="badge badge-blue">React 19</span> <span class="badge badge-blue">Tailwind CSS 4</span></td>
+    <td>トレーナー向けダッシュボード (PWA)</td>
+  </tr>
+  <tr>
+    <td>LIFF</td>
+    <td><span class="badge badge-green">@line/liff</span> <span class="badge badge-blue">Next.js</span></td>
+    <td>クライアント向け食事日記（LINE内ブラウザ）</td>
+  </tr>
+  <tr>
+    <td>バックエンド</td>
+    <td><span class="badge badge-amber">Cloud Functions v2</span> <span class="badge badge-amber">TypeScript</span></td>
+    <td>Webhook / API / スケジュール処理</td>
+  </tr>
+  <tr>
+    <td>AI</td>
+    <td><span class="badge badge-purple">Google Gemini 2.5 Flash Lite</span></td>
+    <td>食事画像認識 / 栄養推定 / 指導生成 / 日次総評</td>
+  </tr>
+  <tr>
+    <td>データベース</td>
+    <td><span class="badge badge-amber">Cloud Firestore</span></td>
+    <td>テナント / ユーザー / メッセージ / 日次サマリー</td>
+  </tr>
+  <tr>
+    <td>認証</td>
+    <td><span class="badge badge-amber">Firebase Auth</span> (トレーナー) / <span class="badge badge-green">LINE OAuth</span> (クライアント)</td>
+    <td>二重認証: トレーナーはGoogle、クライアントはLINE</td>
+  </tr>
+  <tr>
+    <td>メッセージング</td>
+    <td><span class="badge badge-green">LINE Messaging API</span></td>
+    <td>Webhook受信 / Reply / Push / プロフィール取得</td>
+  </tr>
+</table>
+
+<!-- ===== Firestore構造 ===== -->
+<h2>Firestoreデータ構造</h2>
+<table>
+  <tr><th>パス</th><th>内容</th></tr>
+  <tr><td><code>tenants/{tenantId}</code></td><td>Bot設定 (LINE認証情報, システムプロンプト, summaryTime)</td></tr>
+  <tr><td><code>tenants/{tenantId}/users/{userId}</code></td><td>クライアント情報 (プロフィール, personalInfo, nutritionalGoal, 日次栄養累計)</td></tr>
+  <tr><td><code>tenants/{tenantId}/users/{userId}/messages/{msgId}</code></td><td>チャット履歴 (user/ai/trainer, テキスト/画像, 栄養データ)</td></tr>
+  <tr><td><code>tenants/{tenantId}/users/{userId}/dailySummaries/{date}</code></td><td>日次レポート (PFC合計, 食事数, AI総評, 目標スナップショット)</td></tr>
+  <tr><td><code>tenants/{tenantId}/notifications/{id}</code></td><td>トレーナー向け通知 (未報告アラート等)</td></tr>
+</table>
+
+</div>
+</body>
+</html>

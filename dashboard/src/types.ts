@@ -5,6 +5,10 @@ export interface Tenant {
   lineAccessToken: string; // used to call LINE Messaging API
   systemPrompt?: string; // used to specify the AI assistant's behavior
   basicId?: string; // LINE bot's basic ID (@xxx) for friend add URL
+  reminderMessage?: string; // custom reminder message for unreported users
+  summaryTime?: string; // daily summary send time in "HH:00" format (JST), default "00:00"
+  tenantType?: "b2b2c" | "b2c"; // b2b2c = trainer-mediated, b2c = individual
+  proactiveCheckInEnabled?: boolean; // enable daily lunch check-in
 }
 
 // 2. app user (LINE)
@@ -51,6 +55,7 @@ export interface AppUser {
   todayProtein?: number;
   todayFat?: number;
   todayCarbs?: number;
+  onboardingPromptSent?: boolean; // whether onboarding LIFF link was sent
 }
 
 // 3. chat message
