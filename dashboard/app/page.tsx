@@ -8,6 +8,7 @@ import { db } from "../src/lib/firebase";
 import { AppUser } from "../src/types";
 import { differenceInHours, differenceInMinutes, formatDistanceToNow } from "date-fns";
 import { useRequireAuth } from "../src/hooks/useRequireAuth";
+import { useAuth } from "../src/contexts/AuthContext";
 import { ja } from "date-fns/locale";
 import Link from "next/link";
 import { NotificationBell } from "../src/components/NotificationBell";
@@ -99,6 +100,7 @@ export default function DashboardOverview() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const { tenantId, ready } = useRequireAuth();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "no_goal" | "unreported" | "ok" | "alert">("all");
   const [alertUserIds, setAlertUserIds] = useState<Set<string>>(new Set());
@@ -109,15 +111,17 @@ export default function DashboardOverview() {
     const q = query(usersRef, orderBy("lastMessageAt", "desc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedUsers = snapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          ...data,
-          lineUserId: doc.id,
-          lastMessageAt: data.lastMessageAt?.toDate() || new Date(),
-          lastMealReportAt: data.lastMealReportAt?.toDate() || undefined,
-        } as AppUser;
-      });
+      const fetchedUsers = snapshot.docs
+        .filter((doc) => doc.id !== user?.uid)
+        .map((doc) => {
+          const data = doc.data();
+          return {
+            ...data,
+            lineUserId: doc.id,
+            lastMessageAt: data.lastMessageAt?.toDate() || new Date(),
+            lastMealReportAt: data.lastMealReportAt?.toDate() || undefined,
+          } as AppUser;
+        });
       setUsers(fetchedUsers);
       setLoading(false);
     }, (error) => {
